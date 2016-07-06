@@ -217,7 +217,7 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
 #save(phen.dat, file = "phendat.rda")
 
 ##READ BACK IN
-#load(file = "mymodel.rda")
+#load(file = "phendat.rda")
 
 #--------------------------------
 #PLOTS
@@ -229,63 +229,72 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
 
 #VAR: "phen"    "Tmean.e" "Tsd.e"   "T10q.e"  "Tmean"   "Tsd"     "T10q"   
 
-#Calculate phenology shifts across years
-phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"phen"]))
-colnames(phen.dat2)[1]="siteID"
-ylab= "Adult phenology (J)"
+#---------------------
+#Fig 1. D0, DD reg, Number generations
+#Slopes across generations vs latitude: temps, generation lengths
 
-#Adult temps across years for ? generation
-phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean.e"]))
-colnames(phen.dat2)[1]="siteID"
-ylab= "Adult temperature (C)"
 
-phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tsd.e"]))
-colnames(phen.dat2)[1]="siteID"
-ylab= "Adult temperature sd (C)"
 
-#Generation temps across years for ? generation
-phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean"]))
-colnames(phen.dat2)[1]="siteID"
-
-phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tsd"]))
-colnames(phen.dat2)[1]="siteID"
-
-#Number generations
-phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],ngens))
-colnames(phen.dat2)[1]="siteID"
-ylab= "Number generations"
-
-#TEMPS ACROSS GENERATIONS?
-
-#----------------------
-
-# CALCULATE SLOPES
-
-ys= as.numeric( colnames(phen.dat2)[6:ncol(phen.dat2)])
-
-calcm= function(x, ys=ys){
-yd= which( !is.na(x[6:length(x)]) )
-mod1= lm( x[yd]~ys[yd]   )
-ret=coef(summary(mod1))[2, ]
-return(ret)
-}
-
-setwd(paste(fdir,"figures\\",sep="") )
-pdf("Phen_latPlots.pdf", height = 14, width = 14)
-par(mfrow=c(2,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
-
-slopes=apply(phen.dat2[6:ncol(phen.dat2)], MARGIN=1, FUN=calcm, ys=ys)
-phen.dat3= cbind(phen.dat2[,1:5],t(slopes))
-
-plot(abs(phen.dat3$lat), phen.dat3$Estimate, ylab=ylab)
-abline(h=0)
-
-dev.off()
-
-plot(density(phen.dat3$Estimate))
 
 #---------------------
-#drop rows will all NAs
+#Fig 2. Slopes through time vs latitude: adult phenology, number generations; dev temperature, dev temp sd; adult temperature, adult temp sd (only phenological advancements). [dev 10th quantile]
+
+calcm= function(x, ys=ys){
+  yd= which( !is.na(x) )
+  if(length(yd)>0) mod1= lm( as.numeric(x[yd])~ys[yd] )   
+  return(tryCatch(coef(summary(mod1))[2, ], error=function(e) c(NA,NA,NA,NA)))
+}
+
+ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
+
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("Phen_latPlots.pdf", height = 14, width = 10)
+par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+
+for(i in 1:6){
+
+#Calculate phenology shifts across years
+if(i==1) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"phen"]))
+
+#Number generations
+if(i==2) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],ngens))
+  
+#Generation temps across years for ? generation
+if(i==3) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean"]))
+
+if(i==4) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tsd"]))
+
+#Adult temps across years for ? generation
+if(i==5) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean.e"]))
+
+if(i==6) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tsd.e"]))
+
+colnames(phen.dat2)[1]="siteID"
+
+# CALCULATE SLOPES
+ys= as.numeric( colnames(phen.dat2)[6:ncol(phen.dat2)])
+
+slopes= apply(phen.dat2[6:ncol(phen.dat2)], MARGIN=1, FUN=calcm, ys=ys)
+phen.dat3= cbind(phen.dat2[,1:5],t(slopes))
+names(phen.dat3)[6:9]=c("Estimate","Std.Error","t value","P")
+
+#restrict to significant shifts
+phen.sig= phen.dat3[which(phen.dat3$P<0.05),]
+
+plot(abs(phen.sig$lat), phen.sig$Estimate, ylab=ylabs[i],xlab="Absolute latitude (°)")
+abline(h=0)
+
+#------------------------------
+#Store plots over time
+
+} #end loop metrics
+
+dev.off()
+#plot(density(phen.dat3$Estimate))
+
+#======================================
+#PLOT TRENDS OVER TIME
+#drop rows with all NAs
 drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
 if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
 
