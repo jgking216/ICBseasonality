@@ -205,7 +205,7 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
     
       #Number generations by year
     phen.dat2= as.data.frame(phen.dat[stat.k,,,"phen"])
-    ngens[stat.k,]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )  
+    ngens[stat.k,]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
     
     print(stat.k)
     
@@ -218,6 +218,31 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
 
 ##READ BACK IN
 #load(file = "phendat.rda")
+
+#--------------------------------
+#STATISTICS 
+#Duration of generations
+#Developmental temperatures across generations
+#Adult temperatures across generations
+
+#functions
+
+#Set up data storage
+gen.stat= array(NA, dim=c(nrow(dddat), 101,4), dimnames=list(NULL,as.character(1915:2015)))
+
+for(stat.k in 1:nrow(dddat) ){  
+
+#Number generations by year
+phen.dat2= as.data.frame(phen.dat[stat.k,,,"phen"])
+gens.stat[stat.k,,1]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
+
+#Duration of generations
+gens.stat[stat.k,,2]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
+#Developmental temperatures across generations
+
+#Adult temperatures across generations
+
+} #end loop stats
 
 #--------------------------------
 #PLOTS
@@ -244,6 +269,8 @@ calcm= function(x, ys=ys){
   if(length(yd)>0) mod1= lm( as.numeric(x[yd])~ys[yd] )   
   return(tryCatch(coef(summary(mod1))[2, ], error=function(e) c(NA,NA,NA,NA)))
 }
+
+phen.dat[phen.dat==1] <-NA
 
 ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
 
@@ -287,12 +314,6 @@ abline(h=0)
 #------------------------------
 #Store plots over time
 
-} #end loop metrics
-
-dev.off()
-#plot(density(phen.dat3$Estimate))
-
-#======================================
 #PLOT TRENDS OVER TIME
 #drop rows with all NAs
 drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
@@ -300,16 +321,33 @@ if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
 
 phen.dat3= gather(phen.dat2, "year", "phen",6:106)
 phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
-#--------------
+
+#plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=lat)) +geom_line() #+ylim(0, 5)
+plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
+
+if(i==1) p1=plot1
+if(i==2) p2=plot1
+if(i==3) p3=plot1
+if(i==4) p4=plot1
+if(i==5) p5=plot1
+if(i==6) p6=plot1
+
+} #end loop metrics
+
+dev.off()
+#plot(density(phen.dat3$Estimate))
+
+#======================================
 
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("Phen_yearPlots.pdf", height = 14, width = 14)
-par(mfrow=c(2,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
-plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=lat)) +geom_line() #+ylim(0, 5)
-plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
-plot(plot1)
+for(i in 1:6){
+px= paste("p",i,sep="")
+plot(get(px))
 
+} #end i loop
 dev.off()
 
 
