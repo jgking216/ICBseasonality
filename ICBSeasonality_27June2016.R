@@ -66,6 +66,17 @@ dddat=dat
 #Restrict to dat with lat / lon
 dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 
+#Add pest data
+setwd(paste(fdir,"data\\PlantWisePests\\",sep="") )
+sdir= paste(fdir,"data\\PlantWisePests\\",sep="")
+files<-list.files(sdir,pattern="\\.csv$")
+
+pest= lapply(files, function(x) read.csv(x, stringsAsFactors = FALSE))
+pest= unique(unlist(pest, recursive=TRUE, use.names = FALSE))
+
+#pest1= matrix( unlist(strsplit(pest, split = "\\(")), ncol = length(pest), nrow = 2)
+#!!!!!!!!!!!!!!!
+
 #-----------------------------
 #Plot locations
 #http://eriqande.github.io/rep-res-web/lectures/making-maps-with-R.html
@@ -82,6 +93,20 @@ pdf("DevMap.pdf", height = 8, width = 11)
 par(mfrow=c(1,1), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 plot(w3)
 dev.off()
+
+#TABLE DATA
+#GROUP BY ORDER, FAMILY
+
+fam= with(dddat, table(Family))
+fam[fam>30]
+# Aphelinidae: tiny parasitic wasps
+# Aphididae: aphids
+# Braconidae: parasitoid wasps
+# Coccinellidae: lady bugs
+# Drosophilidae
+# Noctuidae: owlet moths
+# Pyralidae: snout moths
+# Tetranychidae: spider moths
 
 #--------------------------------
 #FIND CLOSEST GHCN STATIONS
