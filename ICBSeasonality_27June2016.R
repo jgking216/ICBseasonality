@@ -89,8 +89,9 @@ stat.coords= cbind(stations$Lon, stations$Lat)
 
 #--------------------------------
 #SET UP DATA STORAGE
-phen.dat= array(NA, dim=c(nrow(dddat), 101, 20, 7), dimnames=list(NULL,as.character(1915:2015),as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q")) )
+phen.dat= array(NA, dim=c(nrow(dddat), 101, 20, 8), dimnames=list(NULL,as.character(1915:2015),as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen")) )
 ngens= array(NA, dim=c(nrow(dddat), 101), dimnames=list(NULL,as.character(1915:2015)))
+phen.fixed= array(NA, dim=c(nrow(dddat), 20, 8), dimnames=list(NULL,as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen")) )
 #----------------------------------
 #ANALYSIS
 
@@ -168,6 +169,10 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
     for(genk in 1:20){
     
     phen= dat %>%  group_by(year) %>% slice(which.max(cs> genk* dddat$EADDC[stat.k]))
+    #replace eroneous values
+    phen[which(phen$j==1),"j"]=NA
+    #drop years without generation
+    phen= phen[!is.na(phen$j),]
     
     years.ind=1915:2015
     year.loop= unique(phen$year)
@@ -199,13 +204,34 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
       #10% QUANTILE
       phen.dat[stat.k,which(years.ind==yeark),genk,"T10q"]= quantile(temps, 0.1)
     
-    } #end check data again
+      #duration of generation
+      phen.dat[stat.k,which(years.ind==yeark),genk,"DaysGen"]= j-j.gs
+      
+    } #end year loop
     } #end GEN LOOP
       
-    
       #Number generations by year
     phen.dat2= as.data.frame(phen.dat[stat.k,,,"phen"])
     ngens[stat.k,]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
+    
+    #Generation j and temp average across years
+    for(genk in 1:20){
+      j= round( mean(phen.dat[stat.k,,genk,"phen"], na.rm=TRUE) )
+      
+      if(!is.nan(j)){
+      phen.fixed[stat.k,genk,"phen"]= j
+      dat.gen= dat[dat$year==yeark ,]
+      
+      temps= as.numeric(unlist(dat[dat$j %in% (j-7):(j+7),"tmean"]))
+      
+      #MEAN
+      phen.fixed[stat.k,genk,"Tmean.e"]= mean(temps)
+      #STDEV
+      phen.fixed[stat.k,genk,"Tsd.e"]= sd(temps)
+      #10% QUANTILE
+      phen.fixed[stat.k,genk,"T10q.e"]= quantile(temps, 0.1)
+      } #end check gen exists
+      } #end GEN LOOP
     
     print(stat.k)
     
@@ -224,25 +250,6 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
 #Duration of generations
 #Developmental temperatures across generations
 #Adult temperatures across generations
-
-#functions
-
-#Set up data storage
-gen.stat= array(NA, dim=c(nrow(dddat), 101,4), dimnames=list(NULL,as.character(1915:2015)))
-
-for(stat.k in 1:nrow(dddat) ){  
-
-#Number generations by year
-phen.dat2= as.data.frame(phen.dat[stat.k,,,"phen"])
-gens.stat[stat.k,,1]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
-
-#Duration of generations
-gens.stat[stat.k,,2]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
-#Developmental temperatures across generations
-
-#Adult temperatures across generations
-
-} #end loop stats
 
 #--------------------------------
 #PLOTS
@@ -270,7 +277,6 @@ calcm= function(x, ys=ys){
   return(tryCatch(coef(summary(mod1))[2, ], error=function(e) c(NA,NA,NA,NA)))
 }
 
-phen.dat[phen.dat==1] <-NA
 
 ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
 
