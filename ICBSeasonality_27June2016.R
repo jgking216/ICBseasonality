@@ -13,6 +13,11 @@ library(tidyr)
 library(ggplot2)
 library(tidyr)
 library(maptools)
+#for mapping
+library(ggmap)
+library(maps)
+library(mapdata)
+library(colorRamps)     # for matlab.like(...)
 
 #Make wrapper for Julian function
 julian.wrap=function(date1){ 
@@ -63,9 +68,20 @@ dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 
 #-----------------------------
 #Plot locations
-data(wrld_simpl)
-plot(wrld_simpl, xlim=c(-180,180), ylim=c(-60,60))
-points(dddat$lon, dddat$lat, col="red", cex=1)
+#http://eriqande.github.io/rep-res-web/lectures/making-maps-with-R.html
+
+world <- map_data("world")
+
+w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black") + 
+  coord_fixed(1.3) +ylim(c(-55,80))+xlim(c(-170,195))
+w2= w1 +xlab("Longitude (°)")+ylab("Latitude (°)")
+w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= BDT.c, size=log(EADDC))) + scale_color_gradientn(colours=matlab.like(10))
+
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("DevMap.pdf", height = 8, width = 11)
+par(mfrow=c(1,1), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+plot(w3)
+dev.off()
 
 #--------------------------------
 #FIND CLOSEST GHCN STATIONS
