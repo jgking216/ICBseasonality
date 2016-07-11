@@ -29,6 +29,13 @@ julian.wrap=function(date1){
 #source functions
 setwd(paste(fdir,"analysis\\",sep="") )
 source("DDFunctions.R")
+
+#calculate slope
+calcm= function(x, ys=ys){
+  yd= which( !is.na(x) )
+  if(length(yd)>0) mod1= lm( as.numeric(x[yd])~ys[yd] )   
+  return(tryCatch(coef(summary(mod1))[2, ], error=function(e) c(NA,NA,NA,NA)))
+}
 #--------------------------------
 #LOAD AND CLEAN DATA
 
@@ -180,7 +187,7 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
     dat$tmin= dat$tmin/10 #correct for tenths of degrees or mm
     
     ## FIND YEARS WITH NEARLY COMPLETE DATA
-    dat.agg= aggregate(dat, list(dat$year),FUN=count)
+    dat.agg= aggregate(dat, list(dat$year),FUN=count)  ### PROBLEM IF RASTER LOADED
     years= dat.agg$Group.1[which(dat.agg$tmax>300)]
     dat= dat[which(dat$year %in% years),]
     
@@ -276,6 +283,26 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
       phen.fixed[stat.k,genk,"Tsd.e"]= sd(temps)
       #10% QUANTILE
       phen.fixed[stat.k,genk,"T10q.e"]= quantile(temps, 0.1)
+      
+      #---
+      if(genk>1){
+        j_1= round( mean(phen.dat[stat.k,,genk-1,"phen"], na.rm=TRUE) )
+        
+      temps= as.numeric(unlist(dat[dat$j %in% j_1:j,"tmean"]))
+      
+      #MEAN
+      phen.fixed[stat.k,genk-1,"Tmean"]= mean(temps)
+      #STDEV
+      phen.fixed[stat.k,genk-1,"Tsd"]= sd(temps)
+      #10% QUANTILE
+      phen.fixed[stat.k,genk-1,"T10q"]= quantile(temps, 0.1)
+      
+      #gen length
+      phen.fixed[stat.k,genk-1,"DaysGen"]= j-j_1+1
+      
+      } #end gen loop
+      #---
+      
       } #end check gen exists
       } #end GEN LOOP
     
@@ -285,8 +312,9 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
 } #end site (stat.k) loop
 
 ##SAVE OUTPUT
-#setwd(paste(fdir,"out\\",sep="") )
-#save(phen.dat, file = "phendat.rda")
+setwd(paste(fdir,"out\\",sep="") )
+save(phen.dat, file = "phendat.rda")
+save(phen.fixed, file = "phenfix.rda")
 
 ##READ BACK IN
 #load(file = "phendat.rda")
@@ -311,18 +339,69 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
 #Fig 1. D0, DD reg, Number generations
 #Slopes across generations vs latitude: temps, generation lengths
 
+ylabs= c("Developmental temperature mean (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)","Generation length (days)")
 
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("FixedPhen_latPlots.pdf", height = 14, width = 10)
+par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
+for(i in 1:5){
+  
+  #Generation temps across years for ? generation
+  if(i==1) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.fixed[,,"Tmean"]))
+  
+  if(i==2) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.fixed[,,"Tsd"]))
+  
+  #Adult temps across years for ? generation
+  if(i==3) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.fixed[,,"Tmean.e"]))
+  
+  if(i==4) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.fixed[,,"Tsd.e"]))
+  
+  #Generation length
+  if(i==5) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.fixed[,,"DaysGen"]))
+  
+  colnames(phen.dat2)[1]="siteID"
+  
+  # CALCULATE SLOPES
+  ys= as.numeric( colnames(phen.dat2)[6:ncol(phen.dat2)])
+  
+  slopes= apply(phen.dat2[6:ncol(phen.dat2)], MARGIN=1, FUN=calcm, ys=ys)
+  phen.dat3= cbind(phen.dat2[,1:5],t(slopes))
+  names(phen.dat3)[6:9]=c("Estimate","Std.Error","t value","P")
+  
+  #restrict to significant shifts
+  phen.sig= phen.dat3[which(phen.dat3$P<0.05),]
+  
+  plot(abs(phen.sig$lat), phen.sig$Estimate, ylab=ylabs[i],xlab="Absolute latitude (°)")
+  abline(h=0)
+  
+  #------------------------------
+  #Store plots over time
+  
+  #PLOT TRENDS OVER TIME
+  #drop rows with all NAs
+  drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
+  if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
+  
+  phen.dat3= gather(phen.dat2, "year", "phen",6:106)
+  phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
+  
+  #plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=lat)) +geom_line() #+ylim(0, 5)
+  plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
+  
+  if(i==1) p1=plot1
+  if(i==2) p2=plot1
+  if(i==3) p3=plot1
+  if(i==4) p4=plot1
+  if(i==5) p5=plot1
+  if(i==6) p6=plot1
+  
+} #end loop metrics
+
+dev.off()
 
 #---------------------
 #Fig 2. Slopes through time vs latitude: adult phenology, number generations; dev temperature, dev temp sd; adult temperature, adult temp sd (only phenological advancements). [dev 10th quantile]
-
-calcm= function(x, ys=ys){
-  yd= which( !is.na(x) )
-  if(length(yd)>0) mod1= lm( as.numeric(x[yd])~ys[yd] )   
-  return(tryCatch(coef(summary(mod1))[2, ], error=function(e) c(NA,NA,NA,NA)))
-}
-
 
 ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
 
@@ -401,7 +480,6 @@ plot(get(px))
 
 } #end i loop
 dev.off()
-
 
 #==================================================================
 
