@@ -68,14 +68,19 @@ dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 
 #Add pest data
 setwd(paste(fdir,"data\\PlantWisePests\\",sep="") )
-sdir= paste(fdir,"data\\PlantWisePests\\",sep="")
-files<-list.files(sdir,pattern="\\.csv$")
+#sdir= paste(fdir,"data\\PlantWisePests\\",sep="")
+#files<-list.files(sdir,pattern="\\.csv$")
 
-pest= lapply(files, function(x) read.csv(x, stringsAsFactors = FALSE))
-pest= unique(unlist(pest, recursive=TRUE, use.names = FALSE))
+#pest= lapply(files, function(x) read.csv(x, stringsAsFactors = FALSE))
+#pest= unique(unlist(pest, recursive=TRUE, use.names = FALSE))
+#write.csv(pest, "pest_global.csv" )
+pest= read.csv("pest_global.csv" )
 
-#pest1= matrix( unlist(strsplit(pest, split = "\\(")), ncol = length(pest), nrow = 2)
-#!!!!!!!!!!!!!!!
+pests= paste(pest$gen, pest$spec, sep=" ")
+match1= match(as.character(dddat$Species), pests )
+matched= which(!is.na(match1))
+dddat$pest=0
+dddat$pest[matched]=1
 
 #-----------------------------
 #Plot locations
