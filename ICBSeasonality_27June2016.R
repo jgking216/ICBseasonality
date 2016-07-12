@@ -36,6 +36,12 @@ calcm= function(x, ys=ys){
   if(length(yd)>0) mod1= lm( as.numeric(x[yd])~ys[yd] )   
   return(tryCatch(coef(summary(mod1))[2, ], error=function(e) c(NA,NA,NA,NA)))
 }
+
+calcm.poly= function(x, ys=ys){
+  yd= which( !is.na(x) )
+  if(length(yd)>4) mod1= lm( as.numeric(x[yd])~ poly(ys[yd],2) )   
+  return(tryCatch( c(coef(summary(mod1))[2:3, ]), error=function(e) c(NA,NA,NA,NA,NA,NA,NA,NA)))
+}
 #--------------------------------
 #LOAD AND CLEAN DATA
 
@@ -142,7 +148,7 @@ stat.coords= cbind(stations$Lon, stations$Lat)
 
 #--------------------------------
 #SET UP DATA STORAGE
-phen.dat= array(NA, dim=c(nrow(dddat), 101, 20, 8), dimnames=list(NULL,as.character(1915:2015),as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen")) )
+phen.dat= array(NA, dim=c(nrow(dddat), 101, 20, 10), dimnames=list(NULL,as.character(1915:2015),as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen", "Tmean.e.fixed", "Tmean.fixed")) )
 ngens= array(NA, dim=c(nrow(dddat), 101), dimnames=list(NULL,as.character(1915:2015)))
 phen.fixed= array(NA, dim=c(nrow(dddat), 20, 8), dimnames=list(NULL,as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen")) )
 #----------------------------------
@@ -285,6 +291,15 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
       phen.fixed[stat.k,genk,"T10q.e"]= quantile(temps, 0.1)
       
       #---
+      #Yearly temp at fixed date
+      temps= dat[dat$j %in% (j-7):(j+7),]
+      temps1= temps %>% group_by(year) %>% summarise(mean(tmean, na.rm=TRUE))
+      temps1= temps1[which(temps1$year %in% 1915:2015),]
+      
+      match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.e.fixed"]))
+      phen.dat[stat.k,match1,genk,"Tmean.e.fixed"]= unlist(temps1[,2])
+      
+      #---
       if(genk>1){
         j_1= round( mean(phen.dat[stat.k,,genk-1,"phen"], na.rm=TRUE) )
         
@@ -299,6 +314,15 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
       
       #gen length
       phen.fixed[stat.k,genk-1,"DaysGen"]= j-j_1+1
+      
+      #---
+      #Yearly temp at fixed date
+      temps= dat[dat$j %in% j_1:j,]
+      temps1= temps %>% group_by(year) %>% summarise(mean(tmean, na.rm=TRUE))
+      temps1= temps1[which(temps1$year %in% 1915:2015),]
+      
+      match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.fixed"]))
+      phen.dat[stat.k,match1,genk,"Tmean.fixed"]= unlist(temps1[,2])
       
       } #end gen loop
       #---
@@ -338,12 +362,13 @@ save(phen.fixed, file = "phenfix.rda")
 #---------------------
 #Fig 1. D0, DD reg, Number generations
 #Slopes across generations vs latitude: temps, generation lengths
+# POLYNOMIAL FITS
 
-ylabs= c("Developmental temperature mean (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)","Generation length (days)")
+ylabs= c("Developmental temperature mean (°C)","Developmental temperature mean (sd)", "Adult temperature mean (°C)", "Adult temperature sd (°C)","Generation length (days)")
 
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("FixedPhen_latPlots.pdf", height = 14, width = 10)
-par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+par(mfrow=c(5,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
 for(i in 1:5){
   
@@ -365,14 +390,20 @@ for(i in 1:5){
   # CALCULATE SLOPES
   ys= as.numeric( colnames(phen.dat2)[6:ncol(phen.dat2)])
   
-  slopes= apply(phen.dat2[6:ncol(phen.dat2)], MARGIN=1, FUN=calcm, ys=ys)
+  slopes= apply(phen.dat2[6:ncol(phen.dat2)], MARGIN=1, FUN=calcm.poly, ys=ys)
   phen.dat3= cbind(phen.dat2[,1:5],t(slopes))
-  names(phen.dat3)[6:9]=c("Estimate","Std.Error","t value","P")
+  names(phen.dat3)[6:13]=c("Estimate1","Estimate2","Std.Error1","Std.Error2","t value1","t value2","P1","P2")
   
   #restrict to significant shifts
-  phen.sig= phen.dat3[which(phen.dat3$P<0.05),]
+  phen.sig= phen.dat3[which(phen.dat3$P2<0.05),]
   
-  plot(abs(phen.sig$lat), phen.sig$Estimate, ylab=ylabs[i],xlab="Absolute latitude (°)")
+  plot(abs(phen.sig$lat), phen.sig$Estimate2, ylab=ylabs[i],xlab="Absolute latitude (°)")
+  abline(h=0)
+  
+  #curvature
+  phen.sig= phen.dat3[which(phen.dat3$P1<0.05),]
+  
+  plot(abs(phen.sig$lat), phen.sig$Estimate1, ylab=ylabs[i],xlab="Absolute latitude (°)")
   abline(h=0)
   
   #------------------------------
@@ -383,23 +414,34 @@ for(i in 1:5){
   drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
   if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
   
-  phen.dat3= gather(phen.dat2, "year", "phen",6:106)
+  phen.dat3= gather(phen.dat2, "gen", "phen",6:25)
+  phen.dat3$gen= as.numeric(phen.dat3$gen)
   phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
   
-  #plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=lat)) +geom_line() #+ylim(0, 5)
-  plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
+  plot1 = ggplot(phen.dat3, aes(x=gen, y=phen, group=siteID, color=lat)) +geom_line() + labs(y = ylabs[i]) #+ylim(0, 5)
+  #plot1 = ggplot(phen.dat3, aes(x=gen, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
   
   if(i==1) p1=plot1
   if(i==2) p2=plot1
   if(i==3) p3=plot1
   if(i==4) p4=plot1
   if(i==5) p5=plot1
-  if(i==6) p6=plot1
   
 } #end loop metrics
 
 dev.off()
+#-----------------------
 
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("FixedPhen_genPlots.pdf", height = 14, width = 14)
+par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+
+for(i in 1:5){
+  px= paste("p",i,sep="")
+  plot(get(px))
+  
+} #end i loop
+dev.off()
 #---------------------
 #Fig 2. Slopes through time vs latitude: adult phenology, number generations; dev temperature, dev temp sd; adult temperature, adult temp sd (only phenological advancements). [dev 10th quantile]
 
@@ -468,7 +510,7 @@ if(i==6) p6=plot1
 dev.off()
 #plot(density(phen.dat3$Estimate))
 
-#======================================
+#-----------------------
 
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("Phen_yearPlots.pdf", height = 14, width = 14)
@@ -482,9 +524,52 @@ plot(get(px))
 dev.off()
 
 #==================================================================
+#Fig X. Plot shift
+#x: Tpupal anomaly at fixed
+#y: T pupal shift due to phenology
 
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("Phen_anom.pdf", height = 14, width = 10)
+par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
+for(i in 1:2){
+    
+    #Generation temps across years for ? generation
+    if(i==1) {phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean"]))
+    phen.normal= rowMeans(phen.dat[,6:106,1,"Tmean.fixed"], na.rm=TRUE)
+    phen.fix= phen.dat[,6:106,1,"Tmean.fixed"] } 
+   
+    #Adult temps across years for ? generation
+    if(i==2) {phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean.e"]))
+    phen.normal= rowMeans(phen.dat[,6:106,1,"Tmean.e.fixed"], na.rm=TRUE)
+    phen.fix= phen.dat[,6:106,1,"Tmean.e.fixed"] } 
+    
+  colnames(phen.dat2)[1]="siteID"
+  
+  slopes1= matrix(NA, nrow=nrow(dddat), ncol=4)
+  names(slopes1)=c("Estimate","Std.Error","t value","P")
+  
+    for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
+      
+      #metrics
+      Tanom= phen.dat2[stat.k,6:106] -phen.normal
+      Tshift= phen.dat2[stat.k,6:106] -phen.fix
+      
+      #plot(Tanom, Tshift)
+      #Calculate slope
+      slopes1[stat.k,]= calcm(Tanom, Tshift)
+    } #end loop stats
+    
+  #plot
+  phen.dat3= cbind(phen.dat2[,1:5],slopes)
+  names(phen.dat3)[6:9]=c("Estimate","Std.Error","t value","P")
+  
+  #restrict to significant shifts
+  phen.sig= phen.dat3[which(phen.dat3$P<0.05),]
+  
+  plot(abs(phen.sig$lat), phen.sig$Estimate, ylab=ylabs[i],xlab="Absolute latitude (°)")
+  abline(h=0)
+  
+} #end i loop 
 
-
-
-
+dev.off()
