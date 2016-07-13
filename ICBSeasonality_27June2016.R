@@ -154,7 +154,8 @@ phen.fixed= array(NA, dim=c(nrow(dddat), 20, 8), dimnames=list(NULL,as.character
 #----------------------------------
 #ANALYSIS
 
-for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
+#for(stat.k in 1:nrow(dddat) ){ 
+for(stat.k in 1:10 ){
   if( all(!is.na(dddat[stat.k,c("lon","lat")] )) ){
   min.dist<- order(spDistsN1(stat.coords, as.numeric(dddat[stat.k,c("lon","lat")]), longlat = TRUE))[1:100]
   min.site= stations$Id[min.dist]
@@ -322,7 +323,7 @@ for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
       temps1= temps1[which(temps1$year %in% 1915:2015),]
       
       match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.fixed"]))
-      phen.dat[stat.k,match1,genk,"Tmean.fixed"]= unlist(temps1[,2])
+      phen.dat[stat.k,match1,genk-1,"Tmean.fixed"]= unlist(temps1[,2])
       
       } #end gen loop
       #---
@@ -528,6 +529,8 @@ dev.off()
 #x: Tpupal anomaly at fixed
 #y: T pupal shift due to phenology
 
+ylabs= c("Adult temperature shift (°C)", "Developmental temperature shift (°C)")
+
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("Phen_anom.pdf", height = 14, width = 10)
 par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
@@ -536,32 +539,35 @@ for(i in 1:2){
     
     #Generation temps across years for ? generation
     if(i==1) {phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean"]))
-    phen.normal= rowMeans(phen.dat[,6:106,1,"Tmean.fixed"], na.rm=TRUE)
-    phen.fix= phen.dat[,6:106,1,"Tmean.fixed"] } 
+    phen.normal= rowMeans(phen.dat[,,1,"Tmean.fixed"], na.rm=TRUE)
+    phen.fix= phen.dat[,,1,"Tmean.fixed"] } 
    
     #Adult temps across years for ? generation
     if(i==2) {phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean.e"]))
-    phen.normal= rowMeans(phen.dat[,6:106,1,"Tmean.e.fixed"], na.rm=TRUE)
-    phen.fix= phen.dat[,6:106,1,"Tmean.e.fixed"] } 
+    phen.normal= rowMeans(phen.dat[,,1,"Tmean.e.fixed"], na.rm=TRUE)
+    phen.normal[is.nan(phen.normal)] = NA
+    phen.fix= phen.dat[,,1,"Tmean.e.fixed"] } 
     
   colnames(phen.dat2)[1]="siteID"
   
   slopes1= matrix(NA, nrow=nrow(dddat), ncol=4)
-  names(slopes1)=c("Estimate","Std.Error","t value","P")
+  colnames(slopes1)=c("Estimate","Std.Error","t value","P")
   
     for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
       
       #metrics
-      Tanom= phen.dat2[stat.k,6:106] -phen.normal
-      Tshift= phen.dat2[stat.k,6:106] -phen.fix
+      Tanom= unlist(phen.dat2[stat.k,6:106] -phen.normal[stat.k])
+      Tshift= unlist(phen.dat2[stat.k,6:106] -phen.fix[stat.k,])
       
-      #plot(Tanom, Tshift)
+      #Tdat=na.omit(cbind(Tanom, Tshift))
+      #plot(Tdat[,1], Tdat[,2] )
+      
       #Calculate slope
       slopes1[stat.k,]= calcm(Tanom, Tshift)
     } #end loop stats
     
   #plot
-  phen.dat3= cbind(phen.dat2[,1:5],slopes)
+  phen.dat3= cbind(phen.dat2[,1:5],slopes1)
   names(phen.dat3)[6:9]=c("Estimate","Std.Error","t value","P")
   
   #restrict to significant shifts
