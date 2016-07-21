@@ -18,6 +18,7 @@ library(ggmap)
 library(maps)
 library(mapdata)
 library(colorRamps)     # for matlab.like(...)
+library(grid)
 
 #Make wrapper for Julian function
 julian.wrap=function(date1){ 
@@ -61,7 +62,7 @@ dat= dat[!is.na(dat$BDT.c) & !is.na(dat$EADDC),]
   
 #georeference ##NOTE DAILY MAX CALLS
 locs= unique(as.character(dat$Location))
-locs.geo<- geocode(locs, oneRecord=FALSE)
+#locs.geo<- geocode(locs, oneRecord=FALSE)
 
 match1= match(as.character(dat$Location), locs.geo$originalPlace )
 dat$lon= locs.geo$longitude[match1]
@@ -94,23 +95,6 @@ match1= match(as.character(dddat$Species), pests )
 matched= which(!is.na(match1))
 dddat$pest=0
 dddat$pest[matched]=1
-
-#-----------------------------
-#Plot locations
-#http://eriqande.github.io/rep-res-web/lectures/making-maps-with-R.html
-
-world <- map_data("world")
-
-w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black") + 
-  coord_fixed(1.3) +ylim(c(-55,80))+xlim(c(-170,195))
-w2= w1 +xlab("Longitude (°)")+ylab("Latitude (°)")
-w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= BDT.c, size=log(EADDC))) + scale_color_gradientn(colours=matlab.like(10))
-
-setwd(paste(fdir,"figures\\",sep="") )
-pdf("DevMap.pdf", height = 8, width = 11)
-par(mfrow=c(1,1), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
-plot(w3)
-dev.off()
 
 #TABLE DATA
 #GROUP BY ORDER, FAMILY
@@ -155,7 +139,7 @@ phen.fixed= array(NA, dim=c(nrow(dddat), 20, 8), dimnames=list(NULL,as.character
 #ANALYSIS
 
 #for(stat.k in 1:nrow(dddat) ){ 
-for(stat.k in 1:10 ){
+for(stat.k in 1:nrow(dddat) ){
   if( all(!is.na(dddat[stat.k,c("lon","lat")] )) ){
   min.dist<- order(spDistsN1(stat.coords, as.numeric(dddat[stat.k,c("lon","lat")]), longlat = TRUE))[1:100]
   min.site= stations$Id[min.dist]
@@ -338,17 +322,29 @@ for(stat.k in 1:10 ){
 
 ##SAVE OUTPUT
 setwd(paste(fdir,"out\\",sep="") )
-save(phen.dat, file = "phendat.rda")
-save(phen.fixed, file = "phenfix.rda")
+saveRDS(phen.dat, "phendat.rds")
+saveRDS(phen.fixed, "phenfix.rds")
 
 ##READ BACK IN
-#load(file = "phendat.rda")
+#phen.dat= readRDS("phendat.rds")
+#phen.fixed= readRDS("phenfix.rds")
 
-#--------------------------------
+#============================================================
 #STATISTICS 
 #Duration of generations
 #Developmental temperatures across generations
 #Adult temperatures across generations
+
+#Account for negative generation durations
+days.gen= phen.dat[,,,"DaysGen"]
+days.gen2= days.gen
+days.gen[days.gen<0] <- NA
+phen.dat[,,,"DaysGen"]= days.gen
+
+days.gen= phen.fixed[,,"DaysGen"]
+days.gen3= days.gen
+days.gen[days.gen<0] <- NA
+phen.fixed[,,"DaysGen"]= days.gen
 
 #--------------------------------
 #PLOTS
@@ -360,12 +356,53 @@ save(phen.fixed, file = "phenfix.rda")
 
 #VAR: "phen"    "Tmean.e" "Tsd.e"   "T10q.e"  "Tmean"   "Tsd"     "T10q"   
 
+#-----------------------------
+#Fig 0. map, D0, DD reg, Number generations
+
+#Plot locations
+#http://eriqande.github.io/rep-res-web/lectures/making-maps-with-R.html
+
+world <- map_data("world")
+
+w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black") + 
+  coord_fixed(1.3) +ylim(c(-55,80))+xlim(c(-170,195))
+w2= w1 +xlab("Longitude (°)")+ylab("Latitude (°)")
+w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= BDT.c, size=log(EADDC))) + scale_color_gradientn(colours=matlab.like(10))
+
+#-------------------
+#D0, DD reg, Number generations
+
+ngens.ave= rowMeans(ngens, na.rm=TRUE)
+phen.dat2= as.data.frame( cbind(dddat[,c(1:9,51:52)],ngens.ave))
+
+s1= ggplot()+geom_point(data = phen.dat2, aes(x = lat, y = ngens.ave))+theme_bw()+geom_smooth(data = phen.dat2, formula=y~x, aes(x = lat, y = ngens.ave), method=loess, se=TRUE) + coord_flip()
+
+s2= ggplot()+geom_point(data = phen.dat2, aes(x = lat, y = BDT.C))+theme_bw()+geom_smooth(data = phen.dat2, aes(x = lat, y = BDT.C), method=loess, se=TRUE)+ylim(c(-5,21.2))+ coord_flip()
+
+s3= ggplot()+geom_point(data = phen.dat2, aes(x = lat, y = EADDC))+theme_bw()+geom_smooth(data = phen.dat2, aes(x = lat, y = EADDC), method=loess, se=TRUE)+ylim(c(0,2000))+ coord_flip()
+
+#-----------
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("DevMap.pdf", height = 5, width =15)
+par(mfrow=c(1,1), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(1,4, widths=c(8,2,2,2) )))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
+
+print(w3,vp=vplayout(1,1))
+print(s2,vp=vplayout(1,2))
+print(s3,vp=vplayout(1,3))
+print(s1,vp=vplayout(1,4))
+
+dev.off()
+
 #---------------------
-#Fig 1. D0, DD reg, Number generations
-#Slopes across generations vs latitude: temps, generation lengths
+#Fig 1. Slopes across generations vs latitude: temps, generation lengths
 # POLYNOMIAL FITS
 
-ylabs= c("Developmental temperature mean (°C)","Developmental temperature mean (sd)", "Adult temperature mean (°C)", "Adult temperature sd (°C)","Generation length (days)")
+ylabs= c("Developmental T mean (°C)","Developmental T sd (°C)", "Adult T mean (°C)", "Adult T sd (°C)","Generation length (days)")
 
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("FixedPhen_latPlots.pdf", height = 14, width = 10)
@@ -409,8 +446,11 @@ for(i in 1:5){
   
   #------------------------------
   #Store plots over time
-  
   #PLOT TRENDS OVER TIME
+  
+  #drop non-significant trends
+  phen.dat2= phen.dat2[which(phen.dat3$"P1"<0.05),]
+  
   #drop rows with all NAs
   drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
   if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
@@ -419,7 +459,7 @@ for(i in 1:5){
   phen.dat3$gen= as.numeric(phen.dat3$gen)
   phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
   
-  plot1 = ggplot(phen.dat3, aes(x=gen, y=phen, group=siteID, color=lat)) +geom_line() + labs(y = ylabs[i]) #+ylim(0, 5)
+  plot1 = ggplot(phen.dat3, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i]) #+ylim(0, 5)
   #plot1 = ggplot(phen.dat3, aes(x=gen, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
   
   if(i==1) p1=plot1
@@ -431,18 +471,30 @@ for(i in 1:5){
 } #end loop metrics
 
 dev.off()
+
 #-----------------------
 
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("FixedPhen_genPlots.pdf", height = 14, width = 14)
 par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
-for(i in 1:5){
-  px= paste("p",i,sep="")
-  plot(get(px))
-  
-} #end i loop
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(3,2)))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
+
+print(p1,vp=vplayout(1,1))
+print(p2,vp=vplayout(1,2))
+print(p3,vp=vplayout(2,1))
+print(p4,vp=vplayout(2,2))
+print(p5,vp=vplayout(3,1))
+
 dev.off()
+
+#for(i in 1:5){
+#  px= paste("p",i,sep="")
+#  plot(get(px))
+#} #end i loop
 #---------------------
 #Fig 2. Slopes through time vs latitude: adult phenology, number generations; dev temperature, dev temp sd; adult temperature, adult temp sd (only phenological advancements). [dev 10th quantile]
 
@@ -487,8 +539,11 @@ abline(h=0)
 
 #------------------------------
 #Store plots over time
-
 #PLOT TRENDS OVER TIME
+
+#drop non-significant trends
+phen.dat2= phen.dat2[which(phen.dat3$"P"<0.05),]
+
 #drop rows with all NAs
 drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
 if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
@@ -497,7 +552,7 @@ phen.dat3= gather(phen.dat2, "year", "phen",6:106)
 phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
 
 #plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=lat)) +geom_line() #+ylim(0, 5)
-plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
+plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylabs[i]) #+ylim(0, 5)
 
 if(i==1) p1=plot1
 if(i==2) p2=plot1
@@ -517,11 +572,18 @@ setwd(paste(fdir,"figures\\",sep="") )
 pdf("Phen_yearPlots.pdf", height = 14, width = 14)
 par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
-for(i in 1:6){
-px= paste("p",i,sep="")
-plot(get(px))
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(3,2)))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
 
-} #end i loop
+print(p1,vp=vplayout(1,1))
+print(p2,vp=vplayout(1,2))
+print(p3,vp=vplayout(2,1))
+print(p4,vp=vplayout(2,2))
+print(p5,vp=vplayout(3,1))
+print(p6,vp=vplayout(3,2))
+
 dev.off()
 
 #==================================================================
@@ -532,8 +594,8 @@ dev.off()
 ylabs= c("Adult temperature shift (°C)", "Developmental temperature shift (°C)")
 
 setwd(paste(fdir,"figures\\",sep="") )
-pdf("Phen_anom.pdf", height = 14, width = 10)
-par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+pdf("Phen_anom.pdf", height = 5, width = 10)
+par(mfrow=c(1,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
 for(i in 1:2){
     
@@ -579,3 +641,4 @@ for(i in 1:2){
 } #end i loop 
 
 dev.off()
+
