@@ -53,9 +53,9 @@ dat= dat[,1:48]
 #dat= dat[1:100,] ##subset for testing
 
 #restrict to sites with LDT (BDT.C) and dd threshold (EADDC) 
-dat$BDT.c= as.numeric(dat$BDT.C)
+dat$BDT.C= as.numeric(dat$BDT.C)
 dat$EADDC= as.numeric(dat$EADDC)
-dat= dat[!is.na(dat$BDT.c) & !is.na(dat$EADDC),]
+dat= dat[!is.na(dat$BDT.C) & !is.na(dat$EADDC),]
 
 #locs<- str_split_fixed(dat$Location, ",", 3)
 #locs<- apply(locs, MARGIN=2, FUN="str_trim", side = c("both"))
@@ -77,8 +77,8 @@ dddat=dat
 ##READ BACK IN
 #dddat= read.csv("dddat.csv")
 
-#Restrict to dat with lat / lon
-dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
+##Restrict to dat with lat / lon
+#dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 
 #Add pest data
 setwd(paste(fdir,"data\\PlantWisePests\\",sep="") )
@@ -96,6 +96,33 @@ matched= which(!is.na(match1))
 dddat$pest=0
 dddat$pest[matched]=1
 
+#-----------------------
+#REMOVE MITES
+dddat= dddat[-which(dddat$Order=="Acari"),]
+
+#-----------------------
+#Code Aquatic
+dddat$aquatic=0
+
+dddat[which(dddat$Order %in% c("Ephemeroptera","Odonata", "Plecoptera") ),"aquatic"]=1
+
+dddat[which(dddat$Order=="Hemiptera" & dddat$Family=="Gerridae"),"aquatic"]=1
+
+dddat[which(dddat$Order=="Diptera" & dddat$Family %in% c("Chironomidae","Culicidae", "Simulidae","Tabanidae")),"aquatic"]=1
+
+dddat[which(dddat$Order=="Diptera" & dddat$Family=="Sciomyzidae" & dddat$Genus=="Tabanus"),"aquatic"]=1
+              
+#-----------------------            
+#Code Holometabolous
+dddat$pupal=0
+
+dddat[which(dddat$Order %in% c("Megaloptera","Raphidioptera", "Neuroptera","Coleoptera","Strepsiptera","Diptera","Mecoptera","Siphonaptera","Trichoptera","Lepidoptera","Hymenoptera","Miomoptera")),"pupal"]=1
+
+##WRITE OUT
+#setwd(paste(fdir,"out\\",sep="") )
+#write.csv(dddat, "dddat.csv" )
+
+#-----------------------
 #TABLE DATA
 #GROUP BY ORDER, FAMILY
 
@@ -367,7 +394,7 @@ world <- map_data("world")
 w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black") + 
   coord_fixed(1.3) +ylim(c(-55,80))+xlim(c(-170,195))
 w2= w1 +xlab("Longitude (°)")+ylab("Latitude (°)")
-w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= BDT.c, size=log(EADDC))) + scale_color_gradientn(colours=matlab.like(10))
+w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= BDT.C, size=log(EADDC))) + scale_color_gradientn(colours=matlab.like(10))
 
 #-------------------
 #D0, DD reg, Number generations
