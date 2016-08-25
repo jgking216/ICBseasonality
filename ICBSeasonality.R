@@ -51,7 +51,7 @@ dat$lat= locs.geo$latitude[match1]
 dddat=dat
 
 ##WRITE OUT
-#setwd(paste(fdir,"out\\",sep="") )
+setwd(paste(fdir,"out\\",sep="") )
 #write.csv(dddat, "dddat.csv" )
 
 ##READ BACK IN
@@ -86,7 +86,7 @@ phen.dat= array(NA, dim=c(nrow(dddat), 101, 20, 7), dimnames=list(NULL,as.charac
 ngens= array(NA, dim=c(nrow(dddat), 101), dimnames=list(NULL,as.character(1915:2015)))
 #----------------------------------
 
-for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
+for(stat.k in 17:nrow(dddat) ){  #1:nrow(sites)
   if( all(!is.na(dddat[stat.k,c("lon","lat")] )) ){
   min.dist<- order(spDistsN1(stat.coords, as.numeric(dddat[stat.k,c("lon","lat")]), longlat = TRUE))[1:100]
   min.site= stations$Id[min.dist]

@@ -669,3 +669,35 @@ for(i in 1:2){
 
 dev.off()
 
+#==================================================================
+#ANALYZE DEVELOPMENTAL CONSTRAINTS
+
+#source functions
+setwd(paste(fdir,"out\\",sep="") )
+dat= read.csv("dddat.csv")
+
+p<- ggplot(data=dat, aes(x=abs(lat), y = BDT.C, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) 
+# +xlab("Physiological temperature limit (°C)")+ylab("Cold range boundary temperature (°C)") 
+p + geom_point()
+
+p<- ggplot(data=dat, aes(x=abs(lat), y = EADDC, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600)
+p + geom_point()
+
+p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat), size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24)
+p + geom_point()
+
+p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat) )) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24)
+p + geom_point()
+
+#----------------------------
+#model
+
+mod1= lm(dat$EADDC~ poly(dat$BDT.C) *dat$pupal * abs(dat$lat))
+mod1= lm(dat$EADDC~ dat$pupal + abs(dat$lat))
+
+dat1= dat[!is.na(dat$lat),]
+mod1= lm(dat$BDT.C~ dat$pupal + abs(dat$lat) + abs(dat$lat)^2)
+  
+
+
+
