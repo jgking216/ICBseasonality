@@ -122,6 +122,10 @@ dddat[which(dddat$Order %in% c("Megaloptera","Raphidioptera", "Neuroptera","Cole
 #setwd(paste(fdir,"out\\",sep="") )
 #write.csv(dddat, "dddat.csv" )
 
+#READ BACK IN
+#setwd(paste(fdir,"out\\",sep="") )
+#dddat= read.csv("dddat.csv" )
+
 #-----------------------
 #TABLE DATA
 #GROUP BY ORDER, FAMILY
