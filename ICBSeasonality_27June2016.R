@@ -352,14 +352,16 @@ for(stat.k in 1:nrow(dddat) ){
 } #end site (stat.k) loop
 
 ##SAVE OUTPUT
-setwd(paste(fdir,"out\\",sep="") )
-saveRDS(phen.dat, "phendat.rds")
-saveRDS(phen.fixed, "phenfix.rds")
+#setwd(paste(fdir,"out\\",sep="") )
+#saveRDS(phen.dat, "phendat.rds")
+#saveRDS(phen.fixed, "phenfix.rds")
+#saveRDS(ngens, "ngens.rds")
 
 ##READ BACK IN
-#phen.dat= readRDS("phendat.rds")
-#phen.fixed= readRDS("phenfix.rds")
-
+phen.dat= readRDS("phendat.rds")
+phen.fixed= readRDS("phenfix.rds")
+ngens= readRDS("ngens.rds")
+ 
 #============================================================
 #STATISTICS 
 #Duration of generations
@@ -702,6 +704,29 @@ mod1= lm(dat$EADDC~ dat$pupal + abs(dat$lat))
 dat1= dat[!is.na(dat$lat),]
 mod1= lm(dat$BDT.C~ dat$pupal + abs(dat$lat) + abs(dat$lat)^2)
   
+#===============================
+#Plot fitness surface
 
+ngens[is.nan(ngens)] = NA 
+
+phen.dat2= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","BDT.C")],ngens))
+phen.dat3= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","BDT.C")],rowMeans(ngens, na.rm=T) ))
+colnames(phen.dat3)[7]= "Ngen"
+
+#ave gens across years
+p<- ggplot(data=phen.dat3, aes(x=BDT.C, y = Ngen, color=abs(lat) ))  +ylim(0,20) +xlim(-5,25) +geom_smooth(data = phen.dat3, formula=y~x, aes(x=BDT.C, y = Ngen), method=loess, se=TRUE)
+p + geom_point()
+
+#subset to Ngen data
+phen.dat3= phen.dat3[which(!is.nan(phen.dat3$Ngen) ),]
+
+#aggregate into latitudinal bins
+phen.dat3$latbin= cut(phen.dat3$lat,breaks= c(-45,-20, 0,10, 20,30,40,50,61) ) #c(-45,0,20,40,61)
+
+phen.w= phen.dat3 %>%
+  group_by( latbin ) %>% 
+  do(mod = lm(Ngen ~ BDT.C,na.action=na.omit,  data = .)) %>%
+  mutate(Slope = summary(mod)$coeff[2]) %>%
+  select(-mod)
 
 
