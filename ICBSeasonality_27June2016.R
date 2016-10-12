@@ -129,6 +129,7 @@ dddat[which(dddat$Order %in% c("Megaloptera","Raphidioptera", "Neuroptera","Cole
 #-----------------------
 #TABLE DATA
 #GROUP BY ORDER, FAMILY
+with(dddat, table(Order))
 
 fam= with(dddat, table(Family))
 fam[fam>30]
@@ -358,6 +359,7 @@ for(stat.k in 1:nrow(dddat) ){
 #saveRDS(ngens, "ngens.rds")
 
 ##READ BACK IN
+setwd(paste(fdir,"out\\",sep="") )
 phen.dat= readRDS("phendat.rds")
 phen.fixed= readRDS("phenfix.rds")
 ngens= readRDS("ngens.rds")
@@ -444,7 +446,7 @@ par(mfrow=c(5,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o"
 for(i in 1:5){
   
   #Generation temps across years for ? generation
-  if(i==1) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.fixed[,,"Tmean"]))
+  if(i==1) phen.dat2= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat")],phen.fixed[,,"Tmean"]))
   
   if(i==2) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.fixed[,,"Tsd"]))
   
@@ -530,6 +532,9 @@ dev.off()
 #} #end i loop
 #---------------------
 #Fig 2. Slopes through time vs latitude: adult phenology, number generations; dev temperature, dev temp sd; adult temperature, adult temp sd (only phenological advancements). [dev 10th quantile]
+
+setwd(paste(fdir,"out\\",sep="") )
+dddat= read.csv("dddat.csv")
 
 ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
 
@@ -695,15 +700,53 @@ p + geom_point()
 p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat) )) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24)
 p + geom_point()
 
+#---------------------
+#plots by order
+
+#restrict to orders with data
+dat2=dat[dat$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") ,]
+#Neuroptera   Thysanoptera
+
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("LDT_DDbyOrder.pdf", height = 4, width = 12)
+
+p<- ggplot(data=dat2, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24)
+print(p + geom_point() )
+
+dev.off()
+
+#by latitude
+
+pdf("DDD_ByLat.pdf", height = 4, width = 12)
+p<- ggplot(data=dat2, aes(x=abs(lat), y = EADDC, shape=as.factor(pupal) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(0,1600)
+p + geom_point()
+dev.off()
+
+pdf("LDT_ByLat.pdf", height = 4, width = 12)
+p<- ggplot(data=dat2, aes(x=abs(lat), y = BDT.C, shape=as.factor(pupal) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(-5,24)
+p + geom_point()
+dev.off()
+
+#number generations
+ngens.ave= rowMeans(ngens, na.rm=TRUE)
+#phen.dat2= as.data.frame( cbind(dddat[,c(1:9,51:52)],ngens.ave))
+phen.dat2= as.data.frame( cbind(dddat[,c(1:6,7,9,51:52)],ngens.ave))
+phen.dat2= phen.dat2[phen.dat2$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") ,]
+
+pdf("Ngens_ByLat.pdf", height = 4, width = 12)
+s1= ggplot()+geom_point(data = phen.dat2, aes(x = abs(lat), y = ngens.ave))+facet_grid(.~Order)+theme_bw()+geom_smooth(data = phen.dat2, formula=y~x, aes(x = lat, y = ngens.ave), method=loess, se=TRUE) + coord_flip() +xlim(0,60)+ylim(0,20)
+s1
+dev.off()
 #----------------------------
 #model
 
-mod1= lm(dat$EADDC~ poly(dat$BDT.C) *dat$pupal * abs(dat$lat))
-mod1= lm(dat$EADDC~ dat$pupal + abs(dat$lat))
+mod1= lm(dat$EADDC~ poly(dat$BDT.C) *dat$pupal * abs(dat$lat) *dat$Order)
+mod1= lm(dat$EADDC~ dat$Order * abs(dat$lat))
 
 dat1= dat[!is.na(dat$lat),]
 mod1= lm(dat$BDT.C~ dat$pupal + abs(dat$lat) + abs(dat$lat)^2)
-  
+mod1= lm(dat$BDT.C~ dat$Order * abs(dat$lat) )
+
 #===============================
 #Plot fitness surface
 
