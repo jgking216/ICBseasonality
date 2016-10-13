@@ -8,7 +8,6 @@ library(stringr)
 library(dismo)
 library(rnoaa) #http://recology.info/2015/07/weather-data-with-rnoaa/
 library(zoo)
-library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(tidyr)
@@ -19,6 +18,7 @@ library(maps)
 library(mapdata)
 library(colorRamps)     # for matlab.like(...)
 library(grid)
+library(plyr); library(dplyr)
 
 #Make wrapper for Julian function
 julian.wrap=function(date1){ 
@@ -351,19 +351,21 @@ for(stat.k in 1:nrow(dddat) ){
     
   } #check coordinates
 } #end site (stat.k) loop
-
+ 
 ##SAVE OUTPUT
 #setwd(paste(fdir,"out\\",sep="") )
 #saveRDS(phen.dat, "phendat.rds")
 #saveRDS(phen.fixed, "phenfix.rds")
 #saveRDS(ngens, "ngens.rds")
+#saveRDS(dddat, "dddat_media.rds")
 
 ##READ BACK IN
 setwd(paste(fdir,"out\\",sep="") )
 phen.dat= readRDS("phendat.rds")
 phen.fixed= readRDS("phenfix.rds")
 ngens= readRDS("ngens.rds")
- 
+dddat= readRDS("dddat_media.rds")
+
 #============================================================
 #STATISTICS 
 #Duration of generations
@@ -460,6 +462,23 @@ for(i in 1:5){
   
   colnames(phen.dat2)[1]="siteID"
   
+  #---------------------------------
+#!  ## CLUST BY LAT
+  #elevation aggregate
+  phen.dat2$abslat= abs(phen.dat2$lat)
+  phen.dat2$lcut= cut(phen.dat2$abslat, breaks=c(0,25,35,45,90) )
+  
+  phen.dat4= aggregate(phen.dat2, list(phen.dat2$lcut), FUN=mean, na.rm=TRUE)
+  names(phen.dat4)[1]= "latgroup"
+  
+  #convert to long format
+  phen.dat4= gather(phen.dat4, "gen", "T",7:28)
+  phen.dat4$gen= as.numeric(phen.dat4$gen)  
+  
+  p1 = ggplot(phen.dat4, aes(x=gen, y=T, group= latgroup, color=latgroup)) +geom_line() +theme_bw()
+  
+  #----------------------------------
+  
   # CALCULATE SLOPES
   ys= as.numeric( colnames(phen.dat2)[6:ncol(phen.dat2)])
   
@@ -532,9 +551,6 @@ dev.off()
 #} #end i loop
 #---------------------
 #Fig 2. Slopes through time vs latitude: adult phenology, number generations; dev temperature, dev temp sd; adult temperature, adult temp sd (only phenological advancements). [dev 10th quantile]
-
-setwd(paste(fdir,"out\\",sep="") )
-dddat= read.csv("dddat.csv")
 
 ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
 
@@ -756,9 +772,23 @@ phen.dat2= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon",
 phen.dat3= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","BDT.C")],rowMeans(ngens, na.rm=T) ))
 colnames(phen.dat3)[7]= "Ngen"
 
+#restrict to orders with data
+phen.dat3=phen.dat3[phen.dat3$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") ,]
+
 #ave gens across years
-p<- ggplot(data=phen.dat3, aes(x=BDT.C, y = Ngen, color=abs(lat) ))  +ylim(0,20) +xlim(-5,25) +geom_smooth(data = phen.dat3, formula=y~x, aes(x=BDT.C, y = Ngen), method=loess, se=TRUE)
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("Ngen_byLDT.pdf", height = 4, width = 12)
+
+p<- ggplot(data=phen.dat3, aes(x=BDT.C, y = Ngen, color=abs(lat) ))+facet_grid(.~Order)  +ylim(0,20) +xlim(-5,25) +geom_smooth(data = phen.dat3, formula=y~x, aes(x=BDT.C, y = Ngen), method=loess, se=TRUE)
 p + geom_point()
+dev.off()
+
+#plot Ngen by latitude
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("Ngen_byLat.pdf", height = 4, width = 12)
+p<- ggplot(data=phen.dat3, aes(x=abs(lat), y = Ngen, color=BDT.C ))+facet_grid(.~Order)  +ylim(0,20) +xlim(0,60) +geom_smooth(data = phen.dat3, formula=y~x, aes(x=abs(lat), y = Ngen), method=loess, se=TRUE)
+p + geom_point()
+dev.off()
 
 #subset to Ngen data
 phen.dat3= phen.dat3[which(!is.nan(phen.dat3$Ngen) ),]
