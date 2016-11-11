@@ -21,7 +21,34 @@ ind= unique(ind_new)
 
 dat$index= match(ind_new, ind)
 
-#--------------------------
-#Write out
+#change columns to numeric #CHECK CONVERSION
+dat$lon_new= as.numeric(as.character(dat$lon_new))
+dat$lat_new= as.numeric(as.character(dat$lat_new))
+dat$quality= as.numeric(as.character(dat$quality))
 
-write.csv(dat, "ThermalDatabase_all_10Nov2016.csv")
+#--------------------------
+
+#Add foreign language locations
+dat.lang= read.csv("ThermalDatabase_Fall2016_Languages_10Nov2016.csv", na.strings="")
+
+#change columns to numeric #CHECK CONVERSION
+dat.lang$lon_new= as.numeric(as.character(dat.lang$lon_new))
+dat.lang$lat_new= as.numeric(as.character(dat.lang$lat_new))
+dat.lang$quality= as.numeric(as.character(dat.lang$quality))
+ 
+match1= match(dat.lang$Order, dat$Order.1)
+dat[match1, c("Location_new","lon_new","lat_new","quality","comments","omit", "colony")]= dat.lang[, c("Location_new","lon_new","lat_new","quality","comments","omit", "colony")]
+
+
+#--------------------------
+#Fill in missing new locations with old locations and code quality as 4.
+
+dat$Location_new= as.character(dat$Location_new)
+dat$Location= as.character(dat$Location)
+
+inds= which(is.na(dat$Location_new ))
+dat[inds,"Location_new"]= dat[inds,"Location"]
+dat[inds,"quality"]= 4
+
+#Write out
+write.csv(dat, "ThermalDatabase_updatelocs.csv")
