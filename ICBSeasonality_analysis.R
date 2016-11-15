@@ -19,6 +19,8 @@ library(mapdata)
 library(colorRamps)     # for matlab.like(...)
 library(grid)
 library(plyr); library(dplyr)
+#devtools::install_github("hrbrmstr/nominatim")
+library(nominatim) #for osm geocode
 
 #Make wrapper for Julian function
 julian.wrap=function(date1){ 
@@ -63,22 +65,57 @@ dat= dat[!is.na(dat$BDT.C) & !is.na(dat$EADDC),]
 #-------------------------------
 #AGGREGATE ACROSS REPLICATES, also use bootstrapping?
 
-dat= aggregate(dat, list(dat$index), FUN=mean, na.rm=TRUE)
+#omit
+dat= dat[-which(dat$omit=="y"),]
+
+#group by index
+dat= dat %>% group_by(index) %>% summarise(Species=head(Species)[1],Order=head(Order)[1],Family=head(Family)[1],Genus=head(Genus)[1],Species.1=head(Species.1)[1],BDT.C=mean(BDT.C), UDT.C=mean(UDT.C),EADDC=mean(EADDC),EEDDC=mean(EEDDC), pest=mean(pest), aquatic=mean(aquatic),pupal=mean(pupal),Location=head(Location)[1],lon=mean(lon),lat=mean(lat), Location_new=head(Location_new)[1],lon_new=mean(lon_new),lat_new=mean(lat_new), colony=head(colony)[1], quality=head(quality)[1])
+                                            
+dat= as.data.frame(dat)
 
 #------------------------------  
-#georeference ##NOTE DAILY MAX CALLS
-locs= unique(as.character(dat$Location))
-#locs.geo<- geocode(locs, oneRecord=FALSE)
+#GEOREFERENCE ##NOTE DAILY MAX CALLS
 
-match1= match(as.character(dat$Location), locs.geo$originalPlace )
-dat$lon= locs.geo$longitude[match1]
-dat$lat= locs.geo$latitude[match1]
+#Find sites without Location_new
+#Use initial location information
+inds= which(is.na(dat$Location_new))
 
+dat$Location_new[inds]= dat$Location[inds]
+dat$lon_new[inds]= dat$lon[inds]
+dat$lat_new[inds]= dat$lat[inds]
+dat$quality[inds]= 4
+
+#Find sites without lat lon
+inds= which(is.na(dat$lon_new))
+
+locs= unique(as.character(dat$Location_new[inds]))
+#GEOCODE USING GOOGLE API
+#locs.geo<- dismo::geocode(locs, oneRecord=FALSE)
+#locs.geo<- ggmap::geocode(locs, output = "latlon")
+#GEOCODE USING OPEN STREET MAPS
+#locs.geo <- osm_geocode(locs, key="nG1nq56AVcJD3lFSQbfHxJDJzJP1HwVa") #key for huckley@uw.edu, login:huckley, password:colias
+
+## FOR GEOCODE
+#match1= match(as.character(dat$Location_new[inds]), locs.geo$originalPlace )
+#dat$lon_new[inds]= locs.geo$longitude[match1]
+#dat$lat_new[inds]= locs.geo$latitude[match1]
+
+##FOR OSM
+match1= match(as.character(dat$Location_new[inds]), locs)
+dat$lon_new[inds]= locs.geo$lon[match1]
+dat$lat_new[inds]= locs.geo$lat[match1]
+
+#update old location info with new values
+dat$Location= dat$Location_new
+dat$lon= dat$lon_new
+dat$lat= dat$lat_new
+
+#---------------------------------
 dddat=dat
 
 ##WRITE OUT
 #setwd(paste(fdir,"out\\",sep="") )
-#write.csv(dddat, "dddat.csv" )
+#write.csv(dddat, "dddat_14Nov2017.csv" )
 
 ##READ BACK IN
 #dddat= read.csv("dddat.csv")
@@ -86,51 +123,6 @@ dddat=dat
 ##Restrict to dat with lat / lon
 #dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 
-#Add pest data
-setwd(paste(fdir,"data\\PlantWisePests\\",sep="") )
-#sdir= paste(fdir,"data\\PlantWisePests\\",sep="")
-#files<-list.files(sdir,pattern="\\.csv$")
-
-#pest= lapply(files, function(x) read.csv(x, stringsAsFactors = FALSE))
-#pest= unique(unlist(pest, recursive=TRUE, use.names = FALSE))
-#write.csv(pest, "pest_global.csv" )
-pest= read.csv("pest_global.csv" )
-
-pests= paste(pest$gen, pest$spec, sep=" ")
-match1= match(as.character(dddat$Species), pests )
-matched= which(!is.na(match1))
-dddat$pest=0
-dddat$pest[matched]=1
-
-#-----------------------
-#REMOVE MITES
-dddat= dddat[-which(dddat$Order=="Acari"),]
-
-#-----------------------
-#Code Aquatic
-dddat$aquatic=0
-
-dddat[which(dddat$Order %in% c("Ephemeroptera","Odonata", "Plecoptera") ),"aquatic"]=1
-
-dddat[which(dddat$Order=="Hemiptera" & dddat$Family=="Gerridae"),"aquatic"]=1
-
-dddat[which(dddat$Order=="Diptera" & dddat$Family %in% c("Chironomidae","Culicidae", "Simulidae","Tabanidae")),"aquatic"]=1
-
-dddat[which(dddat$Order=="Diptera" & dddat$Family=="Sciomyzidae" & dddat$Genus=="Tabanus"),"aquatic"]=1
-              
-#-----------------------            
-#Code Holometabolous
-dddat$pupal=0
-
-dddat[which(dddat$Order %in% c("Megaloptera","Raphidioptera", "Neuroptera","Coleoptera","Strepsiptera","Diptera","Mecoptera","Siphonaptera","Trichoptera","Lepidoptera","Hymenoptera","Miomoptera")),"pupal"]=1
-
-##WRITE OUT
-#setwd(paste(fdir,"out\\",sep="") )
-#write.csv(dddat, "dddat.csv" )
-
-#READ BACK IN
-#setwd(paste(fdir,"out\\",sep="") )
-#dddat= read.csv("dddat.csv" )
 
 #-----------------------
 #TABLE DATA

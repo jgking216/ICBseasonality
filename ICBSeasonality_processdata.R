@@ -52,3 +52,53 @@ dat[inds,"quality"]= 4
 
 #Write out
 write.csv(dat, "ThermalDatabase_updatelocs.csv")
+
+#=======================================================
+# INITIAL CODE TO ADD COLUMNS
+
+#Add pest data
+setwd(paste(fdir,"data\\PlantWisePests\\",sep="") )
+#sdir= paste(fdir,"data\\PlantWisePests\\",sep="")
+#files<-list.files(sdir,pattern="\\.csv$")
+
+#pest= lapply(files, function(x) read.csv(x, stringsAsFactors = FALSE))
+#pest= unique(unlist(pest, recursive=TRUE, use.names = FALSE))
+#write.csv(pest, "pest_global.csv" )
+pest= read.csv("pest_global.csv" )
+
+pests= paste(pest$gen, pest$spec, sep=" ")
+match1= match(as.character(dddat$Species), pests )
+matched= which(!is.na(match1))
+dddat$pest=0
+dddat$pest[matched]=1
+
+#-----------------------
+#REMOVE MITES
+dddat= dddat[-which(dddat$Order=="Acari"),]
+
+#-----------------------
+#Code Aquatic
+dddat$aquatic=0
+
+dddat[which(dddat$Order %in% c("Ephemeroptera","Odonata", "Plecoptera") ),"aquatic"]=1
+
+dddat[which(dddat$Order=="Hemiptera" & dddat$Family=="Gerridae"),"aquatic"]=1
+
+dddat[which(dddat$Order=="Diptera" & dddat$Family %in% c("Chironomidae","Culicidae", "Simulidae","Tabanidae")),"aquatic"]=1
+
+dddat[which(dddat$Order=="Diptera" & dddat$Family=="Sciomyzidae" & dddat$Genus=="Tabanus"),"aquatic"]=1
+
+#-----------------------            
+#Code Holometabolous
+dddat$pupal=0
+
+dddat[which(dddat$Order %in% c("Megaloptera","Raphidioptera", "Neuroptera","Coleoptera","Strepsiptera","Diptera","Mecoptera","Siphonaptera","Trichoptera","Lepidoptera","Hymenoptera","Miomoptera")),"pupal"]=1
+
+##WRITE OUT
+#setwd(paste(fdir,"out\\",sep="") )
+#write.csv(dddat, "dddat.csv" )
+
+#READ BACK IN
+#setwd(paste(fdir,"out\\",sep="") )
+#dddat= read.csv("dddat.csv" )
+
