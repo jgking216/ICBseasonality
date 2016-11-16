@@ -30,8 +30,8 @@ julian.wrap=function(date1){
 }
 
 ##source functions
-#setwd(paste(fdir,"analysis\\",sep="") )
-#source("DDFunctions.R")
+setwd(paste(fdir,"analysis\\",sep="") )
+source("DDFunctions.R")
 
 #calculate slope
 calcm= function(x, ys=ys){
@@ -46,83 +46,15 @@ calcm.poly= function(x, ys=ys){
   return(tryCatch( c(coef(summary(mod1))[2:3, ]), error=function(e) c(NA,NA,NA,NA,NA,NA,NA,NA)))
 }
 #--------------------------------
-#LOAD AND CLEAN DATA
+#LOAD DATA
 
-setwd(paste(fdir,"Database\\",sep="") )
-
-dat= read.csv("ThermalDatabase_updatelocs.csv")
-#dat= read.csv("Thermal_database_for_PRATIQUE_20June2016.csv")
-#dat= dat[,1:48]
-#dat= dat[1:100,] ##subset for testing
-
-#restrict to sites with LDT (BDT.C) and dd threshold (EADDC) 
-dat$BDT.C= as.numeric(dat$BDT.C)
-dat$EADDC= as.numeric(dat$EADDC)
-dat= dat[!is.na(dat$BDT.C) & !is.na(dat$EADDC),]
-
-#locs<- str_split_fixed(dat$Location, ",", 3)
-#locs<- apply(locs, MARGIN=2, FUN="str_trim", side = c("both"))
-#-------------------------------
-#AGGREGATE ACROSS REPLICATES, also use bootstrapping?
-
-#omit
-dat= dat[-which(dat$omit=="y"),]
-
-#group by index
-dat= dat %>% group_by(index) %>% summarise(Species=head(Species)[1],Order=head(Order)[1],Family=head(Family)[1],Genus=head(Genus)[1],Species.1=head(Species.1)[1],BDT.C=mean(BDT.C), UDT.C=mean(UDT.C),EADDC=mean(EADDC),EEDDC=mean(EEDDC), pest=mean(pest), aquatic=mean(aquatic),pupal=mean(pupal),Location=head(Location)[1],lon=mean(lon),lat=mean(lat), Location_new=head(Location_new)[1],lon_new=mean(lon_new),lat_new=mean(lat_new), colony=head(colony)[1], quality=head(quality)[1])
-                                            
-dat= as.data.frame(dat)
-
-#------------------------------  
-#GEOREFERENCE ##NOTE DAILY MAX CALLS
-
-#Find sites without Location_new
-#Use initial location information
-inds= which(is.na(dat$Location_new))
-
-dat$Location_new[inds]= dat$Location[inds]
-dat$lon_new[inds]= dat$lon[inds]
-dat$lat_new[inds]= dat$lat[inds]
-dat$quality[inds]= 4
-
-#Find sites without lat lon
-inds= which(is.na(dat$lon_new))
-
-locs= unique(as.character(dat$Location_new[inds]))
-#GEOCODE USING GOOGLE API
-#locs.geo<- dismo::geocode(locs, oneRecord=FALSE)
-#locs.geo<- ggmap::geocode(locs, output = "latlon")
-#GEOCODE USING OPEN STREET MAPS
-#locs.geo <- osm_geocode(locs, key="nG1nq56AVcJD3lFSQbfHxJDJzJP1HwVa") #key for huckley@uw.edu, login:huckley, password:colias
-
-## FOR GEOCODE
-#match1= match(as.character(dat$Location_new[inds]), locs.geo$originalPlace )
-#dat$lon_new[inds]= locs.geo$longitude[match1]
-#dat$lat_new[inds]= locs.geo$latitude[match1]
-
-##FOR OSM
-match1= match(as.character(dat$Location_new[inds]), locs)
-dat$lon_new[inds]= locs.geo$lon[match1]
-dat$lat_new[inds]= locs.geo$lat[match1]
-
-#update old location info with new values
-dat$Location= dat$Location_new
-dat$lon= dat$lon_new
-dat$lat= dat$lat_new
-
-#---------------------------------
-dddat=dat
-
-##WRITE OUT
-#setwd(paste(fdir,"out\\",sep="") )
-#write.csv(dddat, "dddat_14Nov2017.csv" )
+setwd(paste(fdir,"out\\",sep="") )
 
 ##READ BACK IN
-#dddat= read.csv("dddat.csv")
+dddat= read.csv("dddat_14Nov2017.csv")
 
 ##Restrict to dat with lat / lon
-#dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
-
+dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 
 #-----------------------
 #TABLE DATA
@@ -169,7 +101,7 @@ phen.fixed= array(NA, dim=c(nrow(dddat), 20, 8), dimnames=list(NULL,as.character
 #ANALYSIS
 
 #for(stat.k in 1:nrow(dddat) ){ 
-for(stat.k in 1:nrow(dddat) ){
+for(stat.k in 233:nrow(dddat) ){  #! PROBLEM WITH 232?
   if( all(!is.na(dddat[stat.k,c("lon","lat")] )) ){
   min.dist<- order(spDistsN1(stat.coords, as.numeric(dddat[stat.k,c("lon","lat")]), longlat = TRUE))[1:100]
   min.site= stations$Id[min.dist]
@@ -185,13 +117,14 @@ for(stat.k in 1:nrow(dddat) ){
       tmax=try( ghcnd_search(min.site[ind], var = "TMAX") )
       tmin=try( ghcnd_search(min.site[ind], var = "TMIN") )
     }
-    
+     
   if(!is.null(nrow(tmax$tmax)>0) ){ #CHECK DATA
     #combine tmin and tmax
     match1= match(tmax$tmax$date, tmin$tmin$date)
     is.matched= !is.na(match1)
     
     dat= tmax$tmax
+    dat$tmin= NA
     dat$tmin[is.matched]= tmin$tmin$tmin[match1[is.matched]]
     
     #split date 
@@ -202,6 +135,9 @@ for(stat.k in 1:nrow(dddat) ){
     dat$j= unlist(lapply(date, FUN="julian.wrap"))+1
     
     #Format data
+    dat$tmax= as.numeric(dat$tmax)
+    dat$tmin= as.numeric(dat$tmin)
+    
     dat$tmax[which(dat$tmax==-9999)]= NA
     dat$tmax= dat$tmax/10 #correct for tenths of degrees or mm
     dat$tmin[which(dat$tmin==-9999)]= NA
@@ -241,8 +177,8 @@ for(stat.k in 1:nrow(dddat) ){
     
     #Egg to adult DD, First date beyond threshold
     for(genk in 1:20){
-    
-    phen= dat %>%  group_by(year) %>% slice(which.max(cs> genk* dddat$EADDC[stat.k]))
+     
+    phen= dat %>%  group_by(year) %>% slice(which.max(cs> (genk* dddat$EADDC[stat.k]) ))
     #replace eroneous values
     phen[which(phen$j==1),"j"]=NA
     #drop years without generation
@@ -250,7 +186,7 @@ for(stat.k in 1:nrow(dddat) ){
     
     years.ind=1915:2015
     year.loop= unique(phen$year)
-    year.loop= year.loop[which(year.loop>1914) ]
+    year.loop= year.loop[which(year.loop>1914 & year.loop<2016) ]
     
     for(yeark in year.loop){
     
@@ -270,6 +206,7 @@ for(stat.k in 1:nrow(dddat) ){
     #TEMPS: ACROSS GENERATIONS
       #FIND GEN TIME
       j.gs= as.numeric(ifelse(genk==1, dat.yr[which.min(dat.yr$dd>0),"j"], phen.dat[stat.k,which(years.ind==yeark),(genk-1),"phen"] ))
+ 
       temps= as.numeric(unlist(dat.yr[dat.yr$j %in% j.gs:j,"tmean"]))
       #MEAN
       phen.dat[stat.k,which(years.ind==yeark),genk,"Tmean"]= mean(temps)
