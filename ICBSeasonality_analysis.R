@@ -381,7 +381,7 @@ print(s1,vp=vplayout(1,4))
 
 dev.off()
 
-#---------------------
+#============================================
 #Fig 1. Slopes across generations vs latitude: temps, generation lengths
 # POLYNOMIAL FITS
 
@@ -507,7 +507,7 @@ dev.off()
 #  px= paste("p",i,sep="")
 #  plot(get(px))
 #} #end i loop
-#---------------------
+#==============================================
 #Fig 2. Slopes through time vs latitude: adult phenology, number generations; dev temperature, dev temp sd; adult temperature, adult temp sd (only phenological advancements). [dev 10th quantile]
 
 ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
@@ -553,7 +553,10 @@ phen.dat4= gather(phen.dat4, "year", "T", 7:107)
 #phen.dat4 <- setNames(which(names(phen.dat4)=="T"),vars1[i])
 phen.dat4$year= as.numeric(phen.dat4$year)  
 
-plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line() +theme_bw() + ylab(vars1[i])
+#restrict to 1970 to present
+phen.dat4= subset(phen.dat4, phen.dat4$year>1970)
+
+plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=FALSE)+theme_bw() + ylab(vars1[i])
 
 #----------------------------------
 
@@ -584,17 +587,20 @@ if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
 phen.dat3= gather(phen.dat2, "year", "phen",6:106)
 phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
 
+phen.dat4= subset(phen.dat4, phen.dat4$year>1970)
+phen.dat4$year= as.numeric(phen.dat4$year)
+
 ## smooth
-plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylabs[i]) #+ylim(0, 5)
+plot1 = ggplot(phen.dat4, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE, size=0.8)+ labs(y = ylabs[i]) #+ylim(0, 5)
 ## line
 #plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_line()+ labs(y = ylabs[i]) 
 
-if(i==1) p1=plot.lat #plot1
-if(i==2) p2=plot.lat #plot1
-if(i==3) p3=plot.lat #plot1
-if(i==4) p4=plot.lat #plot1
-if(i==5) p5=plot.lat #plot1
-if(i==6) p6=plot.lat #plot1
+if(i==1) {p1=plot.lat; p1all=plot1}
+if(i==2) {p2=plot.lat; p2all=plot1}
+if(i==3) {p3=plot.lat; p3all=plot1}
+if(i==4) {p4=plot.lat; p4all=plot1}
+if(i==5) {p5=plot.lat; p5all=plot1}
+if(i==6) {p6=plot.lat; p6all=plot1}
 
 } #end loop metrics
 
@@ -603,6 +609,7 @@ dev.off()
 
 #-----------------------
 
+#Lat bins
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("Phen_yearPlots.pdf", height = 14, width = 14)
 par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
@@ -621,6 +628,24 @@ print(p6,vp=vplayout(3,2))
 
 dev.off()
 
+#all sites
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("Phen_yearPlots_allsites.pdf", height = 14, width = 14)
+par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(3,2)))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
+
+print(p1all,vp=vplayout(1,1))
+print(p2all,vp=vplayout(1,2))
+print(p3all,vp=vplayout(2,1))
+print(p4all,vp=vplayout(2,2))
+print(p5all,vp=vplayout(3,1))
+print(p6all,vp=vplayout(3,2))
+
+dev.off()
 #==================================================================
 #Fig X. Plot shift
 #x: Tpupal anomaly at fixed
