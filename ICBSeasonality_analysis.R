@@ -51,10 +51,15 @@ calcm.poly= function(x, ys=ys){
 setwd(paste(fdir,"out\\",sep="") )
 
 ##READ BACK IN
-dddat= read.csv("dddat_14Nov2017.csv")
+dddat= read.csv("SeasonalityDatabase_MASTER_Nov2016.csv")
 
 ##Restrict to dat with lat / lon
 dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
+
+#group by index
+dddat= dddat %>% group_by(index) %>% summarise(Species=head(Species)[1],Order=head(Order)[1],Family=head(Family)[1],Genus=head(Genus)[1],Species.1=head(Species.1)[1],BDT.C=mean(BDT.C), UDT.C=mean(UDT.C),EADDC=mean(EADDC),EEDDC=mean(EEDDC), pest=mean(pest), aquatic=mean(aquatic),pupal=mean(pupal),Location=head(Location)[1],lon=mean(lon),lat=mean(lat), colony=head(colony)[1], quality=head(quality)[1], parasitoid=head(parasitoid)[1])
+
+dddat= as.data.frame(dddat)
 
 #-----------------------
 #TABLE DATA
