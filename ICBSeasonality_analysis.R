@@ -45,6 +45,15 @@ calcm.poly= function(x, ys=ys){
   if(length(yd)>4) mod1= lm( as.numeric(x[yd])~ poly(ys[yd],2) )   
   return(tryCatch( c(coef(summary(mod1))[2:3, ]), error=function(e) c(NA,NA,NA,NA,NA,NA,NA,NA)))
 }
+
+#extract legend
+#https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
+g_legend<-function(a.gplot){
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)}
+
 #--------------------------------
 #LOAD DATA
 
@@ -108,65 +117,65 @@ phen.fixed= array(NA, dim=c(nrow(dddat), 20, 8), dimnames=list(NULL,as.character
 #for(stat.k in 1:nrow(dddat) ){ 
 for(stat.k in 1:nrow(dddat) ){  
   if( all(!is.na(dddat[stat.k,c("lon","lat")] )) ){
-  min.dist<- order(spDistsN1(stat.coords, as.numeric(dddat[stat.k,c("lon","lat")]), longlat = TRUE))[1:100]
-  min.site= stations$Id[min.dist]
-  
-  ind=0
-  years=NA
-  
-  while(length(years)<10 & ind<100){
-    ind= ind + 1
-    tmax=try( ghcnd_search(min.site[ind], var = "TMAX") )
-    tmin=try( ghcnd_search(min.site[ind], var = "TMIN") )
-    while( (is.null(nrow(tmax$tmax)) | is.null(nrow(tmin$tmin))) & ind<100){ ind=ind+1
+    min.dist<- order(spDistsN1(stat.coords, as.numeric(dddat[stat.k,c("lon","lat")]), longlat = TRUE))[1:100]
+    min.site= stations$Id[min.dist]
+    
+    ind=0
+    years=NA
+    
+    while(length(years)<10 & ind<100){
+      ind= ind + 1
       tmax=try( ghcnd_search(min.site[ind], var = "TMAX") )
       tmin=try( ghcnd_search(min.site[ind], var = "TMIN") )
-    }
-     
-  if(!is.null(nrow(tmax$tmax)>0) ){ #CHECK DATA
-    #combine tmin and tmax
-    match1= match(tmax$tmax$date, tmin$tmin$date)
-    is.matched= !is.na(match1)
+      while( (is.null(nrow(tmax$tmax)) | is.null(nrow(tmin$tmin))) & ind<100){ ind=ind+1
+      tmax=try( ghcnd_search(min.site[ind], var = "TMAX") )
+      tmin=try( ghcnd_search(min.site[ind], var = "TMIN") )
+      }
+      
+      if(!is.null(nrow(tmax$tmax)>0) ){ #CHECK DATA
+        #combine tmin and tmax
+        match1= match(tmax$tmax$date, tmin$tmin$date)
+        is.matched= !is.na(match1)
+        
+        dat= tmax$tmax
+        dat$tmin= NA
+        dat$tmin[is.matched]= tmin$tmin$tmin[match1[is.matched]]
+        
+        #split date 
+        date= as.Date(dat$date, "%Y-%m-$d")
+        dat$year=as.numeric(format(date, "%Y"))
+        dat$month=as.numeric(format(date, "%m"))
+        dat$day=as.numeric(format(date, "%d"))
+        dat$j= unlist(lapply(date, FUN="julian.wrap"))+1
+        
+        #Format data
+        dat$tmax= as.numeric(dat$tmax)
+        dat$tmin= as.numeric(dat$tmin)
+        
+        dat$tmax[which(dat$tmax==-9999)]= NA
+        dat$tmax= dat$tmax/10 #correct for tenths of degrees or mm
+        dat$tmin[which(dat$tmin==-9999)]= NA
+        dat$tmin= dat$tmin/10 #correct for tenths of degrees or mm
+        
+        #Catch other NA values
+        dat$tmax[which(dat$tmax>200)]= NA
+        dat$tmin[which(dat$tmin>200)]= NA
+        dat$tmax[which(dat$tmax< -200)]= NA
+        dat$tmin[which(dat$tmin< -200)]= NA
+        
+        ## FIND YEARS WITH NEARLY COMPLETE DATA
+        dat.agg= aggregate(dat, list(dat$year),FUN=count)  ### PROBLEM IF RASTER LOADED
+        years= dat.agg$Group.1[which(dat.agg$tmax>300)]
+        dat= dat[which(dat$year %in% years),]
+        
+      } #END CHECK NULL
+    } #END WHILE YEARS
     
-    dat= tmax$tmax
-    dat$tmin= NA
-    dat$tmin[is.matched]= tmin$tmin$tmin[match1[is.matched]]
-    
-    #split date 
-    date= as.Date(dat$date, "%Y-%m-$d")
-    dat$year=as.numeric(format(date, "%Y"))
-    dat$month=as.numeric(format(date, "%m"))
-    dat$day=as.numeric(format(date, "%d"))
-    dat$j= unlist(lapply(date, FUN="julian.wrap"))+1
-    
-    #Format data
-    dat$tmax= as.numeric(dat$tmax)
-    dat$tmin= as.numeric(dat$tmin)
-    
-    dat$tmax[which(dat$tmax==-9999)]= NA
-    dat$tmax= dat$tmax/10 #correct for tenths of degrees or mm
-    dat$tmin[which(dat$tmin==-9999)]= NA
-    dat$tmin= dat$tmin/10 #correct for tenths of degrees or mm
-    
-    #Catch other NA values
-    dat$tmax[which(dat$tmax>200)]= NA
-    dat$tmin[which(dat$tmin>200)]= NA
-    dat$tmax[which(dat$tmax< -200)]= NA
-    dat$tmin[which(dat$tmin< -200)]= NA
-    
-    ## FIND YEARS WITH NEARLY COMPLETE DATA
-    dat.agg= aggregate(dat, list(dat$year),FUN=count)  ### PROBLEM IF RASTER LOADED
-    years= dat.agg$Group.1[which(dat.agg$tmax>300)]
-    dat= dat[which(dat$year %in% years),]
-    
-  } #END CHECK NULL
-  } #END WHILE YEARS
-    
-  #RECORD SITE DATA
-  dddat$Id[stat.k]= as.character(min.site[ind])
-  dddat$st.lat[stat.k]= stations$Lat[min.dist[ind]]
-  dddat$st.lon[stat.k]= stations$Lon[min.dist[ind]]
-  dddat$st.elev[stat.k]= stations$elev[min.dist[ind]]
+    #RECORD SITE DATA
+    dddat$Id[stat.k]= as.character(min.site[ind])
+    dddat$st.lat[stat.k]= stations$Lat[min.dist[ind]]
+    dddat$st.lon[stat.k]= stations$Lon[min.dist[ind]]
+    dddat$st.elev[stat.k]= stations$elev[min.dist[ind]]
     
     #--------------------------------------
     #INTERPOLATE MISSING DATA
@@ -188,51 +197,51 @@ for(stat.k in 1:nrow(dddat) ){
     
     #Egg to adult DD, First date beyond threshold
     for(genk in 1:20){
-     
-    phen= dat %>%  group_by(year) %>% slice(which.max(cs> (genk* dddat$EADDC[stat.k]) ))
-    #replace eroneous values
-    phen[which(phen$j==1 & phen$cs==0),"j"]=NA
-    #drop years without generation
-    phen= phen[!is.na(phen$j),]
-    
-    years.ind=1915:2015
-    year.loop= unique(phen$year)
-    year.loop= year.loop[which(year.loop>1914 & year.loop<2016) ]
-    
-    for(yeark in year.loop){
-    
-      j= as.numeric(phen[phen$year==yeark,"j"])
-     
-       dat.yr= dat[dat$year==yeark ,]
-    #TEMPS: 2 WEEKS AT EMERGENCE
-      temps= as.numeric(unlist(dat.yr[dat.yr$j %in% (j-7):(j+7),"tmean"]))
-      phen.dat[stat.k,which(years.ind==yeark),genk,"phen"]= j
-      #MEAN
-      phen.dat[stat.k,which(years.ind==yeark),genk,"Tmean.e"]= mean(temps)
-      #STDEV
-      phen.dat[stat.k,which(years.ind==yeark),genk,"Tsd.e"]= sd(temps)
-      #10% QUANTILE
-      phen.dat[stat.k,which(years.ind==yeark),genk,"T10q.e"]= quantile(temps, 0.1)
+      
+      phen= dat %>%  group_by(year) %>% slice(which.max(cs> (genk* dddat$EADDC[stat.k]) ))
+      #replace eroneous values
+      phen[which(phen$j==1 & phen$cs==0),"j"]=NA
+      #drop years without generation
+      phen= phen[!is.na(phen$j),]
+      
+      years.ind=1915:2015
+      year.loop= unique(phen$year)
+      year.loop= year.loop[which(year.loop>1914 & year.loop<2016) ]
+      
+      for(yeark in year.loop){
         
-    #TEMPS: ACROSS GENERATIONS
-      #FIND GEN TIME
-      j.gs= as.numeric(ifelse(genk==1, dat.yr[which.min(dat.yr$dd>0),"j"], phen.dat[stat.k,which(years.ind==yeark),(genk-1),"phen"] ))
- 
-      temps= as.numeric(unlist(dat.yr[dat.yr$j %in% j.gs:j,"tmean"]))
-      #MEAN
-      phen.dat[stat.k,which(years.ind==yeark),genk,"Tmean"]= mean(temps)
-      #STDEV
-      phen.dat[stat.k,which(years.ind==yeark),genk,"Tsd"]= sd(temps)
-      #10% QUANTILE
-      phen.dat[stat.k,which(years.ind==yeark),genk,"T10q"]= quantile(temps, 0.1)
-    
-      #duration of generation
-      phen.dat[stat.k,which(years.ind==yeark),genk,"DaysGen"]= j-j.gs
-      
-    } #end year loop
+        j= as.numeric(phen[phen$year==yeark,"j"])
+        
+        dat.yr= dat[dat$year==yeark ,]
+        #TEMPS: 2 WEEKS AT EMERGENCE
+        temps= as.numeric(unlist(dat.yr[dat.yr$j %in% (j-7):(j+7),"tmean"]))
+        phen.dat[stat.k,which(years.ind==yeark),genk,"phen"]= j
+        #MEAN
+        phen.dat[stat.k,which(years.ind==yeark),genk,"Tmean.e"]= mean(temps)
+        #STDEV
+        phen.dat[stat.k,which(years.ind==yeark),genk,"Tsd.e"]= sd(temps)
+        #10% QUANTILE
+        phen.dat[stat.k,which(years.ind==yeark),genk,"T10q.e"]= quantile(temps, 0.1)
+        
+        #TEMPS: ACROSS GENERATIONS
+        #FIND GEN TIME
+        j.gs= as.numeric(ifelse(genk==1, dat.yr[which.min(dat.yr$dd>0),"j"], phen.dat[stat.k,which(years.ind==yeark),(genk-1),"phen"] ))
+        
+        temps= as.numeric(unlist(dat.yr[dat.yr$j %in% j.gs:j,"tmean"]))
+        #MEAN
+        phen.dat[stat.k,which(years.ind==yeark),genk,"Tmean"]= mean(temps)
+        #STDEV
+        phen.dat[stat.k,which(years.ind==yeark),genk,"Tsd"]= sd(temps)
+        #10% QUANTILE
+        phen.dat[stat.k,which(years.ind==yeark),genk,"T10q"]= quantile(temps, 0.1)
+        
+        #duration of generation
+        phen.dat[stat.k,which(years.ind==yeark),genk,"DaysGen"]= j-j.gs
+        
+      } #end year loop
     } #end GEN LOOP
-      
-      #Number generations by year
+    
+    #Number generations by year
     phen.dat2= as.data.frame(phen.dat[stat.k,,,"phen"])
     ngens[stat.k,]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
     
@@ -241,81 +250,76 @@ for(stat.k in 1:nrow(dddat) ){
       j= round( mean(phen.dat[stat.k,,genk,"phen"], na.rm=TRUE) )
       
       if(!is.nan(j)){
-      phen.fixed[stat.k,genk,"phen"]= j
-      dat.gen= dat[dat$year==yeark ,]
-      
-      temps= as.numeric(unlist(dat[dat$j %in% (j-7):(j+7),"tmean"]))
-      
-      #MEAN
-      phen.fixed[stat.k,genk,"Tmean.e"]= mean(temps)
-      #STDEV
-      phen.fixed[stat.k,genk,"Tsd.e"]= sd(temps)
-      #10% QUANTILE
-      phen.fixed[stat.k,genk,"T10q.e"]= quantile(temps, 0.1)
-      
-      #---
-      #Yearly temp at fixed date
-      temps= dat[dat$j %in% (j-7):(j+7),]
-      temps1= temps %>% group_by(year) %>% summarise(mean(tmean, na.rm=TRUE))
-      temps1= temps1[which(temps1$year %in% 1915:2015),]
-      
-      match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.e.fixed"]))
-      phen.dat[stat.k,match1,genk,"Tmean.e.fixed"]= unlist(temps1[,2])
-      
-      #---
-      if(genk>1){
-        j_1= round( mean(phen.dat[stat.k,,genk-1,"phen"], na.rm=TRUE) )
+        phen.fixed[stat.k,genk,"phen"]= j
+        dat.gen= dat[dat$year==yeark ,]
         
-      temps= as.numeric(unlist(dat[dat$j %in% j_1:j,"tmean"]))
-      
-      #MEAN
-      phen.fixed[stat.k,genk-1,"Tmean"]= mean(temps)
-      #STDEV
-      phen.fixed[stat.k,genk-1,"Tsd"]= sd(temps)
-      #10% QUANTILE
-      phen.fixed[stat.k,genk-1,"T10q"]= quantile(temps, 0.1)
-      
-      #gen length
-      phen.fixed[stat.k,genk-1,"DaysGen"]= j-j_1+1
-      
-      #---
-      #Yearly temp at fixed date
-      temps= dat[dat$j %in% j_1:j,]
-      temps1= temps %>% group_by(year) %>% summarise(mean(tmean, na.rm=TRUE))
-      temps1= temps1[which(temps1$year %in% 1915:2015),]
-      
-      match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.fixed"]))
-      phen.dat[stat.k,match1,genk-1,"Tmean.fixed"]= unlist(temps1[,2])
-      
-      } #end gen loop
-      #---
-      
+        temps= as.numeric(unlist(dat[dat$j %in% (j-7):(j+7),"tmean"]))
+        
+        #MEAN
+        phen.fixed[stat.k,genk,"Tmean.e"]= mean(temps)
+        #STDEV
+        phen.fixed[stat.k,genk,"Tsd.e"]= sd(temps)
+        #10% QUANTILE
+        phen.fixed[stat.k,genk,"T10q.e"]= quantile(temps, 0.1)
+        
+        #---
+        #Yearly temp at fixed date
+        temps= dat[dat$j %in% (j-7):(j+7),]
+        temps1= temps %>% group_by(year) %>% summarise(mean(tmean, na.rm=TRUE))
+        temps1= temps1[which(temps1$year %in% 1915:2015),]
+        
+        match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.e.fixed"]))
+        phen.dat[stat.k,match1,genk,"Tmean.e.fixed"]= unlist(temps1[,2])
+        
+        #---
+        if(genk>1){
+          j_1= round( mean(phen.dat[stat.k,,genk-1,"phen"], na.rm=TRUE) )
+          
+          temps= as.numeric(unlist(dat[dat$j %in% j_1:j,"tmean"]))
+          
+          #MEAN
+          phen.fixed[stat.k,genk-1,"Tmean"]= mean(temps)
+          #STDEV
+          phen.fixed[stat.k,genk-1,"Tsd"]= sd(temps)
+          #10% QUANTILE
+          phen.fixed[stat.k,genk-1,"T10q"]= quantile(temps, 0.1)
+          
+          #gen length
+          phen.fixed[stat.k,genk-1,"DaysGen"]= j-j_1+1
+          
+          #---
+          #Yearly temp at fixed date
+          temps= dat[dat$j %in% j_1:j,]
+          temps1= temps %>% group_by(year) %>% summarise(mean(tmean, na.rm=TRUE))
+          temps1= temps1[which(temps1$year %in% 1915:2015),]
+          
+          match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.fixed"]))
+          phen.dat[stat.k,match1,genk-1,"Tmean.fixed"]= unlist(temps1[,2])
+          
+        } #end gen loop
+        #---
+        
       } #end check gen exists
-      } #end GEN LOOP
+    } #end GEN LOOP
     
     print(stat.k)
     
   } #check coordinates
 } #end site (stat.k) loop
- 
+
 ##SAVE OUTPUT
-#setwd(paste(fdir,"out\\",sep="") )
-#saveRDS(phen.dat, "phendat.rds")
-#saveRDS(phen.fixed, "phenfix.rds")
-#saveRDS(ngens, "ngens.rds")
-#saveRDS(dddat, "dddat_media.rds")
+setwd(paste(fdir,"out\\",sep="") )
+saveRDS(phen.dat, "phendat.rds")
+saveRDS(phen.fixed, "phenfix.rds")
+saveRDS(ngens, "ngens.rds")
+saveRDS(dddat, "dddat_media.rds")
 
 ##READ BACK IN
-setwd(paste(fdir,"out\\",sep="") )
-phen.dat= readRDS("phendat.rds")
-phen.fixed= readRDS("phenfix.rds")
-ngens= readRDS("ngens.rds")
-dddat= readRDS("dddat_media.rds")
-
-## Find erroneous high latitude site
-dddat[dddat$lat>70,]
-#fix lat error
-dddat[dddat$index==234,"lat"]= 34.3428
+#setwd(paste(fdir,"out\\",sep="") )
+#phen.dat= readRDS("phendat.rds")
+#phen.fixed= readRDS("phenfix.rds")
+#ngens= readRDS("ngens.rds")
+#dddat= readRDS("dddat_media.rds")
 
 #============================================================
 #STATISTICS 
@@ -352,10 +356,14 @@ phen.fixed[,,"DaysGen"]= days.gen
 
 world <- map_data("world")
 
-w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black") + 
+#Change trait names
+dddat$T0= dddat$BDT.C
+dddat$DDD= dddat$EADDC
+
+w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black") +theme_bw()+ 
   coord_fixed(1.3) +ylim(c(-55,80))+xlim(c(-170,195))
 w2= w1 +xlab("Longitude (°)")+ylab("Latitude (°)")
-w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= BDT.C, size=log(EADDC))) + scale_color_gradientn(colours=matlab.like(10))
+w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= log(T0), size=log(DDD) )) + scale_color_gradientn(colours=matlab.like(10))+ scale_size_continuous(range = c(1,4)) #+ theme(legend.position="bottom") +, alpha = 1/10
 
 #-------------------
 #D0, DD reg, Number generations
@@ -371,23 +379,73 @@ s3= ggplot()+geom_point(data = phen.dat2, aes(x = lat, y = EADDC))+theme_bw()+ge
 
 #-----------
 setwd(paste(fdir,"figures\\",sep="") )
-pdf("DevMap.pdf", height = 5, width =15)
+#pdf("DevMap.pdf", height = 5, width =15)
+pdf("DevMap.pdf", height = 6, width =10)
 par(mfrow=c(1,1), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
-grid.newpage()
-pushViewport(viewport(layout=grid.layout(1,4, widths=c(8,2,2,2) )))
-vplayout<-function(x,y)
-  viewport(layout.pos.row=x,layout.pos.col=y)
+plot(w3)
+#grid.newpage()
+#pushViewport(viewport(layout=grid.layout(1,4, widths=c(8,2,2,2) )))
+#vplayout<-function(x,y)
+#  viewport(layout.pos.row=x,layout.pos.col=y)
 
-print(w3,vp=vplayout(1,1))
-print(s2,vp=vplayout(1,2))
-print(s3,vp=vplayout(1,3))
-print(s1,vp=vplayout(1,4))
+#print(w3,vp=vplayout(1,1))
+#print(s2,vp=vplayout(1,2))
+#print(s3,vp=vplayout(1,3))
+#print(s1,vp=vplayout(1,4))
+
+dev.off()
+#============================================
+#Fig. 2 Latitudinal gradients in data
+
+#ANALYZE DEVELOPMENTAL CONSTRAINTS
+dat=dddat
+
+p<- ggplot(data=dat, aes(x=abs(lat), y = BDT.C, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) 
+# +xlab("Physiological temperature limit (°C)")+ylab("Cold range boundary temperature (°C)") 
+p + geom_point()
+
+p<- ggplot(data=dat, aes(x=abs(lat), y = EADDC, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600)
+p + geom_point()
+
+p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat), size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24)
+p + geom_point()
+
+p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat) )) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24)
+p + geom_point()
+
+#color by latitude
+p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=Order, size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24)
+p + geom_point()
+
+#---------------------
+#plots by order
+
+#restrict to orders with data
+dat2=dat[dat$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") ,]
+#Neuroptera   Thysanoptera
+dat2$pupal= as.factor(dat2$pupal)
+
+p<- ggplot(data=dat2, aes(x=T0, y = DDD, shape=pupal, color=Family ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24) +scale_colour_discrete(guide = FALSE)  #abs(lat)
+p1= p + geom_point() 
+
+#by latitude
+p<- ggplot(data=dat2, aes(x=abs(lat), y = T0, shape=pupal, color=log(DDD) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(-5,24) +xlab("Latitude (°)") #+ scale_color_gradientn(colours=matlab.like(10)) #+scale_shape_discrete(guide = FALSE)
+p2= p + geom_point() +geom_smooth(method=lm, se=FALSE)
+
+p<- ggplot(data=dat2, aes(x=abs(lat), y = DDD, shape=pupal, color=log(T0) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(0,1600)+xlab("Latitude (°)") #+ scale_color_gradientn(colours=matlab.like(10)) #+scale_shape_discrete(guide = FALSE)
+p3= p + geom_point() 
+
+#--------------------
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("T0_DDD.pdf", height = 8, width = 8)
+
+grid.draw(rbind(ggplotGrob(p1), ggplotGrob(p2), ggplotGrob(p3), size="last"))
 
 dev.off()
 
 #============================================
-#Fig 1. Slopes across generations vs latitude: temps, generation lengths
+#Fig 3. PLOT ACCROSS GENERATIONS
 # POLYNOMIAL FITS
 
 #-------------------------------
@@ -397,7 +455,7 @@ phen.fixed1= apply(phen.fixed, MARGIN=c(1,3),function(x){x[duplicated(x)]=NA; re
 
 #------------------------------
 
-ylabs= c("Developmental T mean (°C)","Developmental T sd (°C)", "Adult T mean (°C)", "Adult T sd (°C)","Generation length (days)")
+ylabs= c("Developmental temperature (°C)","Developmental T sd (°C)", "Adult T mean (°C)", "Adult T sd (°C)","Generation length (days)")
 
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("FixedPhen_latPlots.pdf", height = 14, width = 10)
@@ -421,8 +479,8 @@ for(i in 1:5){
   colnames(phen.dat2)[1]="siteID"
   
   #---------------------------------
-#!  ## CLUST BY LAT
-  #elevation aggregate
+  #!  ## CLUST BY LAT
+  #latitude aggregate
   phen.dat2$abslat= abs(phen.dat2$lat)
   phen.dat2$lcut= cut(phen.dat2$abslat, breaks=c(0,10,20,30, 40, 50, 60,90) )
   
@@ -436,7 +494,7 @@ for(i in 1:5){
   phen.dat4$gen= as.numeric(phen.dat4$gen)  
   
   plot.lat = ggplot(phen.dat4, aes(x=gen, y=T, group= latgroup, color=latgroup)) +geom_line() +theme_bw()+ylab(vars1[i])
- 
+  
   #----------------------------------
   
   # CALCULATE SLOPES
@@ -475,8 +533,9 @@ for(i in 1:5){
   phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
   phen.dat4= phen.dat3[which(phen.dat3$phen>1) ,] #get rid of erroneous phenology values of 1
   
-  plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])
-  if(i %in% c(2,4)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])+ylim(0, 10)
+  plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])+theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)),name="Absolute \nlatitude (°)")+xlab("Generation")
+  if(i %in% c(2,4)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=-abs(lat))) +geom_line() + labs(y = ylabs[i])+ylim(0, 10)+xlab("Generation")
+  if(i %in% c(1)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])+ylim(0, 35)+theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)),name="Absolute \nlatitude (°)")+ theme(legend.position="none")+xlab("Generation")
   #plot1 = ggplot(phen.dat3, aes(x=gen, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
   
   if(i==1) p1= plot1 #for aggregate
@@ -492,19 +551,21 @@ dev.off()
 #-----------------------
 
 setwd(paste(fdir,"figures\\",sep="") )
-pdf("FixedPhen_genPlots.pdf", height = 14, width = 14)
-par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
+pdf("FixedPhen_genPlots.pdf", height = 7, width = 12)
 
+#grid.draw(cbind(ggplotGrob(p1), ggplotGrob(p5), size="last"))
+
+par(mfrow=c(1,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 grid.newpage()
-pushViewport(viewport(layout=grid.layout(3,2)))
+pushViewport(viewport(layout=grid.layout(1,2)))
 vplayout<-function(x,y)
   viewport(layout.pos.row=x,layout.pos.col=y)
 
 print(p1,vp=vplayout(1,1))
-print(p2,vp=vplayout(1,2))
-print(p3,vp=vplayout(2,1))
-print(p4,vp=vplayout(2,2))
-print(p5,vp=vplayout(3,1))
+#print(p2,vp=vplayout(1,2))
+#print(p3,vp=vplayout(2,1))
+#print(p4,vp=vplayout(2,2))
+print(p5,vp=vplayout(1,2))
 
 dev.off()
 
@@ -522,91 +583,93 @@ pdf("Phen_latPlots.pdf", height = 14, width = 10)
 par(mfrow=c(3,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
 for(i in 1:6){
-
-#Calculate phenology shifts across years
-if(i==1) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"phen"]))
-
-#Number generations
-if(i==2) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],ngens))
   
-#Generation temps across years for ? generation
-if(i==3) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean"]))
+  #Calculate phenology shifts across years
+  if(i==1) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"phen"]))
+  
+  #Number generations
+  if(i==2) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],ngens))
+  
+  #Generation temps across years for ? generation
+  if(i==3) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean"]))
+  
+  if(i==4) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tsd"]))
+  
+  #Adult temps across years for ? generation
+  if(i==5) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean.e"]))
+  
+  if(i==6) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tsd.e"]))
+  
+  colnames(phen.dat2)[1]="siteID"
+  
+  #---------------------------------
+  #!  ## CLUST BY LAT
+  #elevation aggregate
+  phen.dat2$abslat= abs(phen.dat2$lat)
+  phen.dat2$lcut= cut(phen.dat2$abslat, breaks=c(0,15,30, 45, 60,90) )
+  
+  vars1= c("phen","ngens","Tmean","Tsd","Tmean.e","Tsd.e")
+  
+  phen.dat4= aggregate(phen.dat2, list(phen.dat2$lcut), FUN=mean, na.rm=TRUE)
+  names(phen.dat4)[1]= "latgroup"
+  
+  #convert to long format
+  phen.dat4= gather(phen.dat4, "year", "T", 7:107)
+  
+  #phen.dat4 <- setNames(which(names(phen.dat4)=="T"),vars1[i])
+  phen.dat4$year= as.numeric(phen.dat4$year)  
+  
+  #restrict to 1970 to present
+  phen.dat4= subset(phen.dat4, phen.dat4$year>1970)
+  
+  #-------------------
+  
+  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=FALSE)+theme_bw() + ylab(vars1[i]) + theme(legend.position="bottom", axis.title.x=element_blank()) + scale_color_manual(labels = c("0-15", "15-30","30-45","45-60","60-90"), values = rev(matlab.like2(5)) ) +labs(color = "Latitude (°)")+ylab(ylabs[i])
 
-if(i==4) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tsd"]))
-
-#Adult temps across years for ? generation
-if(i==5) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean.e"]))
-
-if(i==6) phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tsd.e"]))
-
-colnames(phen.dat2)[1]="siteID"
-
-#---------------------------------
-#!  ## CLUST BY LAT
-#elevation aggregate
-phen.dat2$abslat= abs(phen.dat2$lat)
-phen.dat2$lcut= cut(phen.dat2$abslat, breaks=c(0,15,30, 45, 60,90) )
-
-vars1= c("phen","ngens","Tmean","Tsd","Tmean.e","Tsd.e")
-
-phen.dat4= aggregate(phen.dat2, list(phen.dat2$lcut), FUN=mean, na.rm=TRUE)
-names(phen.dat4)[1]= "latgroup"
-
-#convert to long format
-phen.dat4= gather(phen.dat4, "year", "T", 7:107)
-
-#phen.dat4 <- setNames(which(names(phen.dat4)=="T"),vars1[i])
-phen.dat4$year= as.numeric(phen.dat4$year)  
-
-#restrict to 1970 to present
-phen.dat4= subset(phen.dat4, phen.dat4$year>1970)
-
-plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=FALSE)+theme_bw() + ylab(vars1[i])
-
-#----------------------------------
-
-# CALCULATE SLOPES
-ys= as.numeric( colnames(phen.dat2)[6:ncol(phen.dat2)])
-
-slopes= apply(phen.dat2[6:(ncol(phen.dat2)-2)], MARGIN=1, FUN=calcm, ys=ys)
-phen.dat3= cbind(phen.dat2[,1:5],t(slopes))
-names(phen.dat3)[6:9]=c("Estimate","Std.Error","t value","P")
-
-#restrict to significant shifts
-phen.sig= phen.dat3[which(phen.dat3$P<0.05),]
-
-plot(abs(phen.sig$lat), phen.sig$Estimate, ylab=ylabs[i],xlab="Absolute latitude (°)")
-abline(h=0)
-
-#------------------------------
-#Store plots over time
-#PLOT TRENDS OVER TIME
-
-#drop non-significant trends
-phen.dat2= phen.dat2[which(phen.dat3$"P"<0.05),]
-
-#drop rows with all NAs
-drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
-if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
-
-phen.dat3= gather(phen.dat2, "year", "phen",6:106)
-phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
-
-phen.dat4= subset(phen.dat4, phen.dat4$year>1970)
-phen.dat4$year= as.numeric(phen.dat4$year)
-
-## smooth
-plot1 = ggplot(phen.dat4, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE, size=0.8)+ labs(y = ylabs[i]) #+ylim(0, 5)
-## line
-#plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_line()+ labs(y = ylabs[i]) 
-
-if(i==1) {p1=plot.lat; p1all=plot1}
-if(i==2) {p2=plot.lat; p2all=plot1}
-if(i==3) {p3=plot.lat; p3all=plot1}
-if(i==4) {p4=plot.lat; p4all=plot1}
-if(i==5) {p5=plot.lat; p5all=plot1}
-if(i==6) {p6=plot.lat; p6all=plot1}
-
+  #----------------------------------
+  
+  # CALCULATE SLOPES
+  ys= as.numeric( colnames(phen.dat2)[6:ncol(phen.dat2)])
+  
+  slopes= apply(phen.dat2[6:(ncol(phen.dat2)-2)], MARGIN=1, FUN=calcm, ys=ys)
+  phen.dat3= cbind(phen.dat2[,1:5],t(slopes))
+  names(phen.dat3)[6:9]=c("Estimate","Std.Error","t value","P")
+  
+  #restrict to significant shifts
+  phen.sig= phen.dat3[which(phen.dat3$P<0.05),]
+  
+  plot(abs(phen.sig$lat), phen.sig$Estimate, ylab=ylabs[i],xlab="Absolute latitude (°)")
+  abline(h=0)
+  
+  #------------------------------
+  #Store plots over time
+  #PLOT TRENDS OVER TIME
+  
+  #drop non-significant trends
+  phen.dat2= phen.dat2[which(phen.dat3$"P"<0.05),]
+  
+  #drop rows with all NAs
+  drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
+  if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
+  
+  phen.dat3= gather(phen.dat2, "year", "phen",6:106)
+  phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
+  
+  phen.dat4= subset(phen.dat4, phen.dat4$year>1970)
+  phen.dat4$year= as.numeric(phen.dat4$year)
+  
+  ## smooth
+  plot1 = ggplot(phen.dat4, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE, size=0.8)+ labs(y = ylabs[i]) #+ylim(0, 5)
+  ## line
+  #plot1 = ggplot(phen.dat3, aes(x=year, y=phen, group=siteID, color=abs(lat) )) +geom_line()+ labs(y = ylabs[i]) 
+  
+  if(i==1) {p1=plot.lat; p1all=plot1}
+  if(i==2) {p2=plot.lat; p2all=plot1}
+  if(i==3) {p3=plot.lat; p3all=plot1}
+  if(i==4) {p4=plot.lat; p4all=plot1}
+  if(i==5) {p5=plot.lat; p5all=plot1}
+  if(i==6) {p6=plot.lat; p6all=plot1}
+  
 } #end loop metrics
 
 dev.off()
@@ -633,6 +696,43 @@ print(p6,vp=vplayout(3,2))
 
 dev.off()
 
+#------------------------------------
+library(ggplot2)
+library(gridExtra)
+library(grid)
+
+grid_arrange_shared_legend <- function(..., ncol = length(list(...)), nrow = 1, position = c("bottom", "right")) {
+  
+  plots <- list(...)
+  position <- match.arg(position)
+  g <- ggplotGrob(plots[[1]] + theme(legend.position = position))$grobs
+  legend <- g[[which(sapply(g, function(x) x$name) == "guide-box")]]
+  lheight <- sum(legend$height)
+  lwidth <- sum(legend$width)
+  gl <- lapply(plots, function(x) x + theme(legend.position="none"))
+  gl <- c(gl, ncol = ncol, nrow = nrow)
+  
+  combined <- switch(position,
+                     "bottom" = arrangeGrob(do.call(arrangeGrob, gl),
+                                            legend,
+                                            ncol = 1,
+                                            heights = unit.c(unit(1, "npc") - lheight, lheight)),
+                     "right" = arrangeGrob(do.call(arrangeGrob, gl),
+                                           legend,
+                                           ncol = 2,
+                                           widths = unit.c(unit(1, "npc") - lwidth, lwidth)))
+  grid.newpage()
+  grid.draw(combined)
+  
+}
+
+#plot
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("Phen_yearPlots.pdf", height = 14, width = 14)
+grid_arrange_shared_legend(p1, p2, p3, p5, ncol = 2, nrow = 2)
+dev.off()
+
+#------------------------------
 #all sites
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("Phen_yearPlots_allsites.pdf", height = 14, width = 14)
@@ -663,36 +763,36 @@ pdf("Phen_anom.pdf", height = 5, width = 10)
 par(mfrow=c(1,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
 
 for(i in 1:2){
-    
-    #Generation temps across years for ? generation
-    if(i==1) {phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean"]))
-    phen.normal= rowMeans(phen.dat[,,1,"Tmean.fixed"], na.rm=TRUE)
-    phen.fix= phen.dat[,,1,"Tmean.fixed"] } 
-   
-    #Adult temps across years for ? generation
-    if(i==2) {phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean.e"]))
-    phen.normal= rowMeans(phen.dat[,,1,"Tmean.e.fixed"], na.rm=TRUE)
-    phen.normal[is.nan(phen.normal)] = NA
-    phen.fix= phen.dat[,,1,"Tmean.e.fixed"] } 
-    
+  
+  #Generation temps across years for ? generation
+  if(i==1) {phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean"]))
+  phen.normal= rowMeans(phen.dat[,,1,"Tmean.fixed"], na.rm=TRUE)
+  phen.fix= phen.dat[,,1,"Tmean.fixed"] } 
+  
+  #Adult temps across years for ? generation
+  if(i==2) {phen.dat2= as.data.frame( cbind(1:nrow(phen.dat), dddat[,c("Species","Order","lon","lat")],phen.dat[,,1,"Tmean.e"]))
+  phen.normal= rowMeans(phen.dat[,,1,"Tmean.e.fixed"], na.rm=TRUE)
+  phen.normal[is.nan(phen.normal)] = NA
+  phen.fix= phen.dat[,,1,"Tmean.e.fixed"] } 
+  
   colnames(phen.dat2)[1]="siteID"
   
   slopes1= matrix(NA, nrow=nrow(dddat), ncol=4)
   colnames(slopes1)=c("Estimate","Std.Error","t value","P")
   
-    for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
-      
-      #metrics
-      Tanom= unlist(phen.dat2[stat.k,6:106] -phen.normal[stat.k])
-      Tshift= unlist(phen.dat2[stat.k,6:106] -phen.fix[stat.k,])
-      
-      #Tdat=na.omit(cbind(Tanom, Tshift))
-      #plot(Tdat[,1], Tdat[,2] )
-      
-      #Calculate slope
-      slopes1[stat.k,]= calcm(Tanom, Tshift)
-    } #end loop stats
+  for(stat.k in 1:nrow(dddat) ){  #1:nrow(sites)
     
+    #metrics
+    Tanom= unlist(phen.dat2[stat.k,6:106] -phen.normal[stat.k])
+    Tshift= unlist(phen.dat2[stat.k,6:106] -phen.fix[stat.k,])
+    
+    #Tdat=na.omit(cbind(Tanom, Tshift))
+    #plot(Tdat[,1], Tdat[,2] )
+    
+    #Calculate slope
+    slopes1[stat.k,]= calcm(Tanom, Tshift)
+  } #end loop stats
+  
   #plot
   phen.dat3= cbind(phen.dat2[,1:5],slopes1)
   names(phen.dat3)[6:9]=c("Estimate","Std.Error","t value","P")
@@ -708,54 +808,6 @@ for(i in 1:2){
 dev.off()
 
 #==================================================================
-#ANALYZE DEVELOPMENTAL CONSTRAINTS
-
-#source functions
-#setwd(paste(fdir,"out\\",sep="") )
-#dat= read.csv("dddat_14Nov2017.csv")
-
-dat=dddat
-#-------------------
-
-p<- ggplot(data=dat, aes(x=abs(lat), y = BDT.C, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) 
-# +xlab("Physiological temperature limit (°C)")+ylab("Cold range boundary temperature (°C)") 
-p + geom_point()
-
-p<- ggplot(data=dat, aes(x=abs(lat), y = EADDC, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600)
-p + geom_point()
-
-p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat), size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24)
-p + geom_point()
-
-p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat) )) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24)
-p + geom_point()
-
-#---------------------
-#plots by order
-
-#restrict to orders with data
-dat2=dat[dat$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") ,]
-#Neuroptera   Thysanoptera
-
-setwd(paste(fdir,"figures\\",sep="") )
-pdf("LDT_DDbyOrder.pdf", height = 4, width = 12)
-
-p<- ggplot(data=dat2, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24)
-print(p + geom_point() )
-
-dev.off()
-
-#by latitude
-
-pdf("DDD_ByLat.pdf", height = 4, width = 12)
-p<- ggplot(data=dat2, aes(x=abs(lat), y = EADDC, shape=as.factor(pupal) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(0,1600)
-p + geom_point()
-dev.off()
-
-pdf("LDT_ByLat.pdf", height = 4, width = 12)
-p<- ggplot(data=dat2, aes(x=abs(lat), y = BDT.C, shape=as.factor(pupal) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(-5,24)
-p + geom_point()
-dev.off()
 
 #number generations
 ngens.ave= rowMeans(ngens, na.rm=TRUE)
@@ -811,5 +863,10 @@ phen.w= phen.dat3 %>%
   do(mod = lm(Ngen ~ BDT.C,na.action=na.omit,  data = .)) %>%
   mutate(Slope = summary(mod)$coeff[2]) %>%
   select(-mod)
+
+#==========================================================
+#Paper figures
+
+#Data map
 
 
