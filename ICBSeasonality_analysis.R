@@ -129,14 +129,14 @@ stat.coords= cbind(stations$Lon, stations$Lat)
 
 #--------------------------------
 #SET UP DATA STORAGE
-phen.dat= array(NA, dim=c(nrow(dddat), 101, 20, 10), dimnames=list(NULL,as.character(1915:2015),as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen", "Tmean.e.fixed", "Tmean.fixed")) )
-ngens= array(NA, dim=c(nrow(dddat), 101), dimnames=list(NULL,as.character(1915:2015)))
+phen.dat= array(NA, dim=c(nrow(dddat), length(1970:2015), 20, 10), dimnames=list(NULL,as.character(1970:2015),as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen", "Tmean.e.fixed", "Tmean.fixed")) )
+ngens= array(NA, dim=c(nrow(dddat), length(1970:2015)), dimnames=list(NULL,as.character(1970:2015)))
 phen.fixed= array(NA, dim=c(nrow(dddat), 20, 8), dimnames=list(NULL,as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen")) )
 #----------------------------------
 #ANALYSIS
 
 #for(stat.k in 1:nrow(dddat) ){ 
-for(stat.k in 1:nrow(dddat) ){  
+for(stat.k in 30:nrow(dddat) ){  
   if( all(!is.na(dddat[stat.k,c("lon","lat")] )) ){
     min.dist<- order(spDistsN1(stat.coords, as.numeric(dddat[stat.k,c("lon","lat")]), longlat = TRUE))[1:100]
     min.site= stations$Id[min.dist]
@@ -214,7 +214,18 @@ for(stat.k in 1:nrow(dddat) ){
     
     #Estimate phenology across years based on DD accumulations
     #cumsum within groups
-    dat = dat %>% group_by(year) %>% arrange(date) %>% mutate(cs = cumsum(dd))
+    #dat = dat %>% group_by(year) %>% arrange(date) %>% mutate(cs = cumsum(dd)) 
+    
+    #revise to handle S hemisphere
+    if(dddat[stat.k,"lat"]<0) 
+      {inds.jd= which(dat$j>181)
+        inds.jj= which(dat$j<182)
+      
+      dat[inds.jd, "j"] = dat$j[inds.jd] -181
+      dat[inds.jj, "j"] = dat$j[inds.jj] +184
+      } #end fix s hemi
+      
+    dat = dat %>% group_by(year) %>% arrange(j) %>% mutate(cs = cumsum(dd))
     
     #Egg to adult DD, First date beyond threshold
     for(genk in 1:20){
@@ -225,9 +236,10 @@ for(stat.k in 1:nrow(dddat) ){
       #drop years without generation
       phen= phen[!is.na(phen$j),]
       
-      years.ind=1915:2015
+      #use only years starting 1970
+      years.ind=1970:2015
       year.loop= unique(phen$year)
-      year.loop= year.loop[which(year.loop>1914 & year.loop<2016) ]
+      year.loop= year.loop[which(year.loop>1969 & year.loop<2016) ]
       
       for(yeark in year.loop){
         
@@ -287,7 +299,7 @@ for(stat.k in 1:nrow(dddat) ){
         #Yearly temp at fixed date
         temps= dat[dat$j %in% (j-7):(j+7),]
         temps1= temps %>% group_by(year) %>% summarise(mean(tmean, na.rm=TRUE))
-        temps1= temps1[which(temps1$year %in% 1915:2015),]
+        temps1= temps1[which(temps1$year %in% 1970:2015),]
         
         match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.e.fixed"]))
         phen.dat[stat.k,match1,genk,"Tmean.e.fixed"]= unlist(temps1[,2])
@@ -312,7 +324,7 @@ for(stat.k in 1:nrow(dddat) ){
           #Yearly temp at fixed date
           temps= dat[dat$j %in% j_1:j,]
           temps1= temps %>% group_by(year) %>% summarise(mean(tmean, na.rm=TRUE))
-          temps1= temps1[which(temps1$year %in% 1915:2015),]
+          temps1= temps1[which(temps1$year %in% 1970:2015),]
           
           match1= match(as.character(unlist(temps1[,1])), names(phen.dat[stat.k,,genk,"Tmean.fixed"]))
           phen.dat[stat.k,match1,genk-1,"Tmean.fixed"]= unlist(temps1[,2])
@@ -377,9 +389,9 @@ phen.fixed[,,"DaysGen"]= days.gen
 
 world <- map_data("world")
 
-#Change trait names
-dddat$T0= dddat$BDT.C
-dddat$DDD= dddat$EADDC
+#change trait names
+names(dddat)[which(names(dddat)=="BDT.C")]<-"T0"
+names(dddat)[which(names(dddat)=="EADDC")]<-"DDD"
 
 w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black") +theme_bw()+ 
   coord_fixed(1.3) +ylim(c(-55,80))+xlim(c(-170,195))
@@ -390,7 +402,7 @@ w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= log(T0), size=log(
 #D0, DD reg, Number generations
 
 ngens.ave= rowMeans(ngens, na.rm=TRUE)
-phen.dat2= as.data.frame( cbind(dddat[,c(1:10,54:55)],ngens.ave))
+phen.dat2= as.data.frame( cbind(dddat[,c(1:10)],ngens.ave))
 
 s1= ggplot()+geom_point(data = phen.dat2, aes(x = lat, y = ngens.ave))+theme_bw()+geom_smooth(data = phen.dat2, formula=y~x, aes(x = lat, y = ngens.ave), method=loess, se=TRUE)+xlim(c(-50,60)) + coord_flip()
 
@@ -422,21 +434,21 @@ dev.off()
 #ANALYZE DEVELOPMENTAL CONSTRAINTS
 dat=dddat
 
-p<- ggplot(data=dat, aes(x=abs(lat), y = BDT.C, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +theme_bw()
+p<- ggplot(data=dat, aes(x=abs(lat), y = T0, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +theme_bw()
 # +xlab("Physiological temperature limit (°C)")+ylab("Cold range boundary temperature (°C)") 
 p + geom_point()
 
-p<- ggplot(data=dat, aes(x=abs(lat), y = EADDC, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +theme_bw()
+p<- ggplot(data=dat, aes(x=abs(lat), y = DDD, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +theme_bw()
 p + geom_point()
 
-p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat), size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24) +theme_bw()
+p<- ggplot(data=dat, aes(x=T0, y = DDD, shape=as.factor(pupal), color=abs(lat), size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24) +theme_bw()
 p + geom_point()
 
-p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=abs(lat) )) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24) +theme_bw()
+p<- ggplot(data=dat, aes(x=T0, y = DDD, shape=as.factor(pupal), color=abs(lat) )) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24) +theme_bw()
 p + geom_point()
 
 #color by latitude
-p<- ggplot(data=dat, aes(x=BDT.C, y = EADDC, shape=as.factor(pupal), color=Order, size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24)
+p<- ggplot(data=dat, aes(x=T0, y = DDD, shape=as.factor(pupal), color=Order, size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24)
 p + geom_point() +theme_bw()
 
 #---------------------
@@ -497,7 +509,7 @@ for(i in 1:5){
   colnames(phen.dat2)[1]="siteID"
   
   #SUBSET SITES RANDOMLY TO 25% TOMAKE PLOT MORE CLEAR
-  phen.dat2= phen.dat2[sample(1:nrow(phen.dat2),nrow(phen.dat2)/4 ),]
+  phen.dat2= phen.dat2[sample(1:nrow(phen.dat2),nrow(phen.dat2)/2 ),]
   
   #---------------------------------
   #!  ## CLUST BY LAT
@@ -530,13 +542,13 @@ for(i in 1:5){
   if(i %in% c(2,4)) phen.sig= phen.sig[which(phen.sig$lat<70),]
   
   #  plot(abs(phen.sig$lat), phen.sig$Estimate2, ylab=ylabs[i],xlab="Absolute latitude (°)", xlim=range(0,65))
-  abline(h=0)
+  #abline(h=0)
   
   #curvature
   phen.sig= phen.dat3[which(phen.dat3$P1<0.05),]
   
   #  plot(abs(phen.sig$lat), phen.sig$Estimate1, ylab=ylabs[i],xlab="Absolute latitude (°)", xlim=range(0,65))
-  abline(h=0)
+  #abline(h=0)
   
   #------------------------------
   #Store plots over time
@@ -555,8 +567,13 @@ for(i in 1:5){
   phen.dat4= phen.dat3[which(phen.dat3$phen>1) ,] #get rid of erroneous phenology values of 1
   
   plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])+theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)),name="Absolute \nlatitude (°)")+xlab("Generation")
-  if(i %in% c(2,4)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=-abs(lat))) +geom_line() + labs(y = ylabs[i])+ylim(0, 10)+xlab("Generation")
-  if(i %in% c(1)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])+ylim(0, 35)+theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)),name="Absolute \nlatitude (°)")+ theme(legend.position="none")+xlab("Generation")
+
+    if(i %in% c(2,4)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=-abs(lat))) +geom_line() + labs(y = ylabs[i])+ylim(0, 10)+xlab("Generation")
+
+    if(i %in% c(1)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])+ylim(0, 35)+theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)),name="Absolute \nlatitude (°)")+ theme(legend.position="none")+xlab("Generation")
+  
+  if(i %in% c(5)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])+theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)),name="Absolute \nlatitude (°)")+xlab("Generation")+ylim(0, 60)
+  
   #plot1 = ggplot(phen.dat3, aes(x=gen, y=phen, group=siteID, color=abs(lat) )) +geom_smooth(method=lm, se=FALSE)+ labs(y = ylab) #+ylim(0, 5)
   
   if(i==1) p1= plot1 #for aggregate
@@ -630,7 +647,7 @@ for(i in 1:6){
   names(phen.dat4)[1]= "latgroup"
   
   #convert to long format
-  phen.dat4= gather(phen.dat4, "year", "T", 9:109)
+  phen.dat4= gather(phen.dat4, "year", "T", 9:(9+46) )
   
   #phen.dat4 <- setNames(which(names(phen.dat4)=="T"),vars1[i])
   phen.dat4$year= as.numeric(phen.dat4$year)  
@@ -671,7 +688,7 @@ for(i in 1:6){
   drop.row=apply(phen.dat2, MARGIN=1, FUN=function(x)all(is.na(x[6:length(x)])) )
   if(!all(drop.row==FALSE)) phen.dat2= phen.dat2[-which(drop.row==TRUE),]
   
-  phen.dat3= gather(phen.dat2, "year", "phen",6:106)
+  phen.dat3= gather(phen.dat2, "year", "phen",6:(6+46) )
   phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
   
   phen.dat4= subset(phen.dat4, phen.dat4$year>1970)
