@@ -50,8 +50,14 @@ image(tmax[,,1])
 txn= abind(tmin, tmax, along=4)
 dim(txn) #  96   73 3652    2
 
-#test on subset
+#change NaN to NA
+txn[is.nan(txn)] = NA  
+
+#test on subset without NAs
 dd= apply(txn[10:15,11:15,1,], MARGIN=c(1,2), FUN=degree.days.mat, LDT=-5 )
+#test with NAs 
+dd= apply(txn[5:12,10:15,1,], MARGIN=c(1,2), FUN=degree.days.mat, LDT=-5 )
+
 #run on all
 #!NEED TO MODIFY FUNCTION TO DEAL WITH NAs
 dd= apply(txn, MARGIN=c(1,2,3), FUN=degree.days.mat, LDT=T0 )
