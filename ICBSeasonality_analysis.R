@@ -137,7 +137,7 @@ phen.fixed= array(NA, dim=c(nrow(dddat), 20, 8), dimnames=list(NULL,as.character
 #ANALYSIS
 
 #for(stat.k in 1:nrow(dddat) ){ 
-for(stat.k in 30:nrow(dddat) ){  
+for(stat.k in 1:nrow(dddat) ){  
   if( all(!is.na(dddat[stat.k,c("lon","lat")] )) ){
     min.dist<- order(spDistsN1(stat.coords, as.numeric(dddat[stat.k,c("lon","lat")]), longlat = TRUE))[1:100]
     min.site= stations$Id[min.dist]
@@ -277,9 +277,12 @@ for(stat.k in 30:nrow(dddat) ){
     
     #Number generations by year
     phen.dat2= as.data.frame(phen.dat[stat.k,,,"phen"])
+    
+    all.na= apply(phen.dat2, MARGIN=1, function(x)all(is.na(x)) )
+    
     ngens[stat.k,]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
     #correct for years without data
-    ngens[stat.k,which(is.na(rowMeans(phen.dat2)))]=NA
+    ngens[stat.k,which(all.na==TRUE) ]=NA
     
     #Generation j and temp average across years
     for(genk in 1:20){
@@ -344,11 +347,11 @@ for(stat.k in 30:nrow(dddat) ){
 } #end site (stat.k) loop
 
 ##SAVE OUTPUT
-#setwd(paste(fdir,"out\\",sep="") )
-#saveRDS(phen.dat, "phendat.rds")
-#saveRDS(phen.fixed, "phenfix.rds")
-#saveRDS(ngens, "ngens.rds")
-#saveRDS(dddat, "dddat_media.rds")
+setwd(paste(fdir,"out\\",sep="") )
+saveRDS(phen.dat, "phendat.rds")
+saveRDS(phen.fixed, "phenfix.rds")
+saveRDS(ngens, "ngens.rds")
+saveRDS(dddat, "dddat_media.rds")
 
 ##READ BACK IN
 #setwd(paste(fdir,"out\\",sep="") )
