@@ -100,32 +100,30 @@ grid.draw(rbind(ggplotGrob(p1), ggplotGrob(p2), ggplotGrob(p3), size="last"))
 
 dev.off()
 
-#==================================================================
-
 #FIG 6. FITNESS SURFACES
 #number generations
 ngens.ave= rowMeans(ngens, na.rm=TRUE)
-
-phen.dat2= as.data.frame( cbind(dddat[,c(1:6,7,9,51:52)],ngens.ave))
+#phen.dat2= as.data.frame( cbind(dddat[,c(1:9)],ngens.ave))
+phen.dat2= as.data.frame( cbind(dddat[,c(1:6,7,9)],ngens.ave))
 phen.dat2= phen.dat2[phen.dat2$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") ,]
 
 #----------------------------
 #model
 
-mod1= lm(dat$EADDC~ poly(dat$BDT.C) *dat$pupal * abs(dat$lat) *dat$Order)
-mod1= lm(dat$EADDC~ dat$Order * abs(dat$lat))
+mod1= lm(dat$DDD~ poly(dat$T0) *dat$pupal * abs(dat$lat) *dat$Order)
+mod1= lm(dat$DDD~ dat$Order * abs(dat$lat))
 
 dat1= dat[!is.na(dat$lat),]
-mod1= lm(dat$BDT.C~ dat$pupal + abs(dat$lat) + abs(dat$lat)^2)
-mod1= lm(dat$BDT.C~ dat$Order * abs(dat$lat) )
+mod1= lm(dat$T0~ dat$pupal + abs(dat$lat) + abs(dat$lat)^2)
+mod1= lm(dat$T0~ dat$Order * abs(dat$lat) )
 
 #===============================
 #Plot fitness surface
 
 ngens[is.nan(ngens)] = NA 
 
-phen.dat2= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","BDT.C")],ngens))
-phen.dat3= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","BDT.C")],rowMeans(ngens, na.rm=T) ))
+phen.dat2= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","T0")],ngens))
+phen.dat3= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","T0")],rowMeans(ngens, na.rm=T) ))
 colnames(phen.dat3)[7]= "Ngen"
 
 #restrict to orders with data
@@ -135,14 +133,14 @@ phen.dat3=phen.dat3[phen.dat3$Order %in% c("Coleoptera","Diptera","Hemiptera","H
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("Ngen_byLDT.pdf", height = 4, width = 12)
 
-p<- ggplot(data=phen.dat3, aes(x=BDT.C, y = Ngen, color=abs(lat) ))+facet_grid(.~Order)  +ylim(0,20) +xlim(-5,25) +geom_smooth(data = phen.dat3, formula=y~x, aes(x=BDT.C, y = Ngen), method=loess, se=TRUE)
+p<- ggplot(data=phen.dat3, aes(x=T0, y = Ngen, color=abs(lat) ))+facet_grid(.~Order)  +ylim(0,20) +xlim(-5,25) +geom_smooth(data = phen.dat3, formula=y~x, aes(x=T0, y = Ngen), method=loess, se=TRUE)
 p + geom_point()
 dev.off()
 
 #plot Ngen by latitude
 setwd(paste(fdir,"figures\\",sep="") )
 pdf("Ngen_byLat.pdf", height = 4, width = 12)
-p<- ggplot(data=phen.dat3, aes(x=abs(lat), y = Ngen, color=BDT.C ))+facet_grid(.~Order)  +ylim(0,20) +xlim(0,60) +geom_smooth(data = phen.dat3, formula=y~x, aes(x=abs(lat), y = Ngen), method=loess, se=TRUE)
+p<- ggplot(data=phen.dat3, aes(x=abs(lat), y = Ngen, color=T0 ))+facet_grid(.~Order)  +ylim(0,20) +xlim(0,60) +geom_smooth(data = phen.dat3, formula=y~x, aes(x=abs(lat), y = Ngen), method=loess, se=TRUE)
 p + geom_point()
 dev.off() 
 
@@ -154,11 +152,32 @@ phen.dat3$latbin= cut(phen.dat3$lat,breaks= c(-45,-20, 0,10, 20,30,40,50,61) ) #
 
 phen.w= phen.dat3 %>%
   group_by( latbin ) %>% 
-  do(mod = lm(Ngen ~ BDT.C,na.action=na.omit,  data = .)) %>%
+  do(mod = lm(Ngen ~ T0,na.action=na.omit,  data = .)) %>%
   mutate(Slope = summary(mod)$coeff[2]) %>%
   select(-mod)
 
 #==========================================================
+#FITNESS SURFACE
+
+fld <- with(phen.dat3, interp(x = abs(lat), y = T0, z = Ngen, duplicate=TRUE))
+
+gdat <- interp2xyz(fld, data.frame=TRUE)
+
+p3d= ggplot(gdat) + 
+  aes(x = x, y = y, z = z, fill = z) + 
+  geom_tile() + 
+  coord_equal() +
+  geom_contour(color = "white", alpha = 0.5) + 
+  scale_fill_distiller(palette="Spectral", na.value="white", name="Number\ngenerations") + 
+  theme_bw()+xlab("latitude (°)")+ylab("T0 (°C)")
+
+#plot
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("FitnessSurface.pdf", height = 8, width = 8)
+p3d
+dev.off()
+
+#============================================
 
 
 
