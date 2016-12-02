@@ -347,11 +347,11 @@ for(stat.k in 1:nrow(dddat) ){
 } #end site (stat.k) loop
 
 ##SAVE OUTPUT
-setwd(paste(fdir,"out\\",sep="") )
-saveRDS(phen.dat, "phendat.rds")
-saveRDS(phen.fixed, "phenfix.rds")
-saveRDS(ngens, "ngens.rds")
-saveRDS(dddat, "dddat_media.rds")
+#setwd(paste(fdir,"out\\",sep="") )
+#saveRDS(phen.dat, "phendat.rds")
+#saveRDS(phen.fixed, "phenfix.rds")
+#saveRDS(ngens, "ngens.rds")
+#saveRDS(dddat, "dddat_media.rds")
 
 ##READ BACK IN
 #setwd(paste(fdir,"out\\",sep="") )
@@ -667,7 +667,7 @@ for(i in 1:6){
   
   #-------------------
   
-  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=FALSE)+theme_bw(base_size = 18) + ylab(vars1[i]) + theme(legend.position="bottom", axis.title.x=element_blank()) + scale_color_manual(labels = c("0-32", "32-35","35-37","37-44","44-52"), values = rainbow(5) ) +labs(color = "Absolute latitude (°)")+ylab(ylabs[i])
+  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + ylab(vars1[i]) + theme(legend.position="bottom", axis.title.x=element_blank()) + scale_color_manual(labels = c("0-32", "32-35","35-37","37-44","44-52"), values = rainbow(5) ) +labs(color = "Absolute latitude (°)")+ylab(ylabs[i])
   
   #----------------------------------
   # CALCULATE SLOPES
@@ -817,7 +817,8 @@ phen.w= phen.dat3 %>%
 
 ords= c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera")
 
-fld <- with(phen.dat3[which(phen.dat3$Order==ords[6]),], interp(x = abs(lat), y = T0, z = Ngen, duplicate=TRUE))
+for(i in 1:6){
+fld <- with(phen.dat3[which(phen.dat3$Order==ords[i]),], interp(x = abs(lat), y = T0, z = Ngen, duplicate=TRUE))
 
 gdat <- interp2xyz(fld, data.frame=TRUE)
 
@@ -827,14 +828,22 @@ p3d= ggplot(gdat) +
   coord_equal() +
   geom_contour(color = "white", alpha = 0.5) + 
   scale_fill_distiller(palette="Spectral", na.value="white", name="Number\ngenerations") + 
-  theme_bw()+xlab("latitude (°)")+ylab("T0 (°C)")
+  theme_bw()+xlab("latitude (°)")+ylab("T0 (°C)")+ggtitle(ords[i])+ theme(legend.position="bottom")+xlim(c(0,55))+ylim(c(-23,20))
 
-p3d
+if(i==1) f1= p3d
+if(i==2) f2= p3d
+if(i==3) f3= p3d
+if(i==4) f4= p3d
+if(i==5) f5= p3d
+if(i==6) f6= p3d
+} 
 
 #plot
 setwd(paste(fdir,"figures\\",sep="") )
-pdf("FitnessSurface.pdf", height = 8, width = 8)
-p3d
+pdf("FitnessSurface.pdf", height = 8, width = 12)
+
+fig6= grid_arrange_shared_legend(f1,f2,f3,f4,f5,f6, ncol = 3, nrow = 2)
+
 dev.off()
 
 #============================================
