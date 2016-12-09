@@ -87,6 +87,14 @@ dddat= read.csv("SeasonalityDatabase_MASTER_Nov2016.csv")
 ##Restrict to dat with lat / lon
 dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 
+#remove omit data
+dddat[which(dddat$omit=="Y"),"omit"]="y"
+dddat= dddat[-which(dddat$omit=="y"),]
+
+#remove phys outliers
+dddat= dddat[-which(dddat$BDT.C< (-7)),] #drops 3
+dddat= dddat[-which(dddat$EADDC>2000),] #drops 9
+
 #group by index
 dddat= dddat %>% group_by(index) %>% summarise(Species=head(Species)[1],Order=head(Order)[1],Family=head(Family)[1],Genus=head(Genus)[1],Species.1=head(Species.1)[1],BDT.C=mean(BDT.C), UDT.C=mean(UDT.C),EADDC=mean(EADDC),EEDDC=mean(EEDDC), pest=mean(pest), aquatic=mean(aquatic),pupal=mean(pupal),Location=head(Location)[1],lon=mean(lon),lat=mean(lat), colony=head(colony)[1], quality=head(quality)[1], parasitoid=head(parasitoid)[1])
 
@@ -622,6 +630,9 @@ dev.off()
 ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
 mylabs= c("Slope of adult phenology (J)","Slope of number generations", "Slope of developmental temperature mean (°C)","Slope of developmental temperature sd (°C)", "Slope of adult temperature mean (°C)", "Slope of adult temperature sd (°C)")
 
+#slore slope data
+phen.slopes= dddat[,c("Species","Order","lon","lat", "T0","DDD")]
+
 for(i in 1:6){
   
   #Calculate phenology shifts across years
@@ -648,7 +659,7 @@ for(i in 1:6){
   #!  ## CLUST BY LAT
   #elevation aggregate
   phen.dat2$abslat= abs(phen.dat2$lat)
-  phen.dat2$lcut= cut(phen.dat2$abslat, breaks= quantile(phen.dat2$abslat, probs = seq(0, 1, 0.2), na.rm = TRUE)) #c(0,15,30, 45, 60,90) #c(0,25,35, 40,50,90) 
+  phen.dat2$lcut= cut(phen.dat2$abslat, breaks=c(0,25,35, 40,50,90) ) #c(0,15,30, 45, 60,90) #c(0,25,35, 40,50,90) #quantile(phen.dat2$abslat, probs = seq(0, 1, 0.2), na.rm = TRUE)
   #aggregate(phen.dat2, list(phen.dat2$lcut),FUN=count)
   
   vars1= c("phen","ngens","Tmean","Tsd","Tmean.e","Tsd.e")
@@ -662,12 +673,9 @@ for(i in 1:6){
   #phen.dat4 <- setNames(which(names(phen.dat4)=="T"),vars1[i])
   phen.dat4$year= as.numeric(phen.dat4$year)  
   
-  #restrict to 1970 to present
-  phen.dat4= subset(phen.dat4, phen.dat4$year>1970)
-  
   #-------------------
   
-  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + ylab(vars1[i]) + theme(legend.position="bottom", axis.title.x=element_blank()) + scale_color_manual(labels = c("0-32", "32-35","35-37","37-44","44-52"), values = rainbow(5) ) +labs(color = "Absolute latitude (°)")+ylab(ylabs[i])
+  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + theme(legend.position="bottom") + scale_color_manual(labels = c("0-25", "25-35","35-40","40-50","50-90"), values = rainbow(5) ) +labs(color = "Absolute latitude (°)")+ylab(ylabs[i])+xlab("Years")
   
   #----------------------------------
   # CALCULATE SLOPES
@@ -679,13 +687,19 @@ for(i in 1:6){
   phen.dat3= cbind(phen.dat2[,1:7],t(slopes))
   names(phen.dat3)[8:11]=c("Estimate","Std.Error","t value","P")
   
-  #restrict to significant shifts
-  phen.sig= phen.dat3 #[which(phen.dat3$P<0.05),]
+  #store slopes
+  phen.slopes= cbind(phen.slopes, phen.dat3$Estimate, phen.dat3$P)
+  
+  #code significant shifts
+  phen.sig$sig=0
+  phen.sig$sig[which(phen.dat3$P<0.05)]=1
   
   #remove temperature slope outliers >1
-  if(i==5) phen.sig= subset(phen.sig, phen.sig$Estimate<1)
+  #if(i==5) phen.sig= subset(phen.sig, phen.sig$Estimate<1)
+  ylims=quantile(phen.sig$Estimate, probs= c(0.05,0.95), na.rm=TRUE )
   
-  plotm=  ggplot(phen.sig, aes(x=abs(lat), y=Estimate)) +geom_point(aes(colour = log(T0)))  +geom_smooth(method=lm, se=FALSE)+theme_bw() + ylab(mylabs[i]) +xlab("Absolute Latitude (°)")  +ylim(-0.1,0.3) 
+  plotm=  ggplot(phen.sig, aes(x=abs(lat), y=Estimate)) +geom_point(aes(colour = log(T0), shape=factor(sig)))  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + ylab(mylabs[i]) +xlab("Absolute Latitude (°)") +ylim(ylims) +
+    scale_shape_manual(values=c(1, 19)) + guides(shape=FALSE)
   
   #------------------------------
   #Store plots over time
@@ -722,16 +736,11 @@ for(i in 1:6){
 #PLOTS ACROSS TIME
 
 setwd(paste(fdir,"figures\\",sep="") )
-pdf("Phen_yearPlots.pdf", height = 14, width = 14)
-fig5= grid_arrange_shared_legend(p1, p2, p3, p5, ncol = 2, nrow = 2)
-dev.off()
+pdf("TimePlots.pdf", height = 6, width = 12)
 
-#PLOT POINTS FOR ALL SITES
-setwd(paste(fdir,"figures\\",sep="") )
-pdf("NgenT_slopes.pdf", height = 5, width = 10)
-par(mfrow=c(1,2), cex=1.2, mar=c(3, 3, 0.5, 0.5), oma=c(0,0,0,0), lwd=1, bty="o", tck=0.02, mgp=c(1, 0, 0))
-
-fig6= grid_arrange_shared_legend(p2m, p5m, ncol = 2, nrow = 1)
+layout(matrix(c(1,1), 2, 1, byrow = TRUE))
+fig5= grid_arrange_shared_legend(p1, p2, p3, ncol = 3, nrow = 1)
+fig6= grid_arrange_shared_legend(p1m, p2m, p3m, ncol = 3, nrow = 1)
 
 dev.off()
 
@@ -754,6 +763,37 @@ print(p5all,vp=vplayout(3,1))
 print(p6all,vp=vplayout(3,2))
 
 dev.off()
+
+#====================================================
+#PLOT RELATIONSHIP OF SLOPES
+
+names(phen.slopes)[7:18 ]= c("phen.m","phen.p","ngen.m","ngen.p", "dtemp.m","dtemp.p","dtemp.sd.m","dtemp.sd.p", "atemp.m","atemp.p", "atemp.sd.m", "atemp.sd.p")
+phen.slopes= na.omit(phen.slopes)
+
+#remove outliers
+phen.slopes= phen.slopes[which(phen.slopes$phen.m>-1 & phen.slopes$phen.m<1 & phen.slopes$ngen.m>-1 & phen.slopes$dtemp.m>-1),]
+
+#shifts in temp and phenology
+fld <- with(phen.slopes, interp(x = phen.m, y = dtemp.m, z = ngen.m, duplicate=TRUE))
+
+gdat <- interp2xyz(fld, data.frame=TRUE)
+
+p3d= ggplot(gdat) + 
+  aes(x = x, y = y, z = z, fill = z) + 
+  geom_tile() + 
+  coord_equal() +
+  geom_contour(color = "white", alpha = 0.5) + 
+  scale_fill_distiller(palette="Spectral", na.value="white", name="m(number\ngenerations)") + 
+  theme_bw(base_size = 18)+xlab("m(phenology)")+ylab("m(temp)")+ theme(legend.position="right")
+
+#--------------
+#PLOT
+
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("FitnessShifts.pdf", height = 10, width = 15)
+p3d
+dev.off() 
+
 #==================================================================
 
 #FIG 6. FITNESS SURFACES
@@ -828,7 +868,7 @@ p3d= ggplot(gdat) +
   coord_equal() +
   geom_contour(color = "white", alpha = 0.5) + 
   scale_fill_distiller(palette="Spectral", na.value="white", name="Number\ngenerations") + 
-  theme_bw()+xlab("latitude (°)")+ylab("T0 (°C)")+ggtitle(ords[i])+ theme(legend.position="bottom")+xlim(c(0,55))+ylim(c(-23,20))
+  theme_bw(base_size=18)+xlab("latitude (°)")+ylab("T0 (°C)")+ggtitle(ords[i])+ theme(legend.position="bottom")+xlim(c(0,55))+ylim(c(-23,20))
 
 if(i==1) f1= p3d
 if(i==2) f2= p3d
