@@ -44,6 +44,17 @@ image(tmax[,,1])
 #can use vector notation to access netcdf: e.g., tmax[,,1]
 
 #----------------------------
+#PLOT SEASONALITY
+
+tmax1= tmax[19,15,1:365]
+tmin1= tmin[19,15,1:365]
+tmean1= colMeans( rbind(tmin1,tmax1))
+
+tmean1= cbind(tmean1, 1:365)
+
+plot(tmean1,type="l", ylab="Temperature (°C)", cex.lab=1.2, cex=1.2)
+
+#----------------------------
 #CALCULATE DEGREE DAYS
 
 #combine tmin and tmax

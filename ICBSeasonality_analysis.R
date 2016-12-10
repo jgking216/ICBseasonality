@@ -82,21 +82,22 @@ grid_arrange_shared_legend <- function(..., ncol = length(list(...)), nrow = 1, 
 setwd(paste(fdir,"out\\",sep="") )
 
 ##READ BACK IN
-dddat= read.csv("SeasonalityDatabase_MASTER_Nov2016.csv")
+dddat= read.csv("SeasonalityDatabase_MASTER_Dec2016.csv")
 
 ##Restrict to dat with lat / lon
 dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 
-#remove omit data
+#fix omit data
 dddat[which(dddat$omit=="Y"),"omit"]="y"
-dddat= dddat[-which(dddat$omit=="y"),]
+
+#dddat= dddat[-which(dddat$omit=="y"),]
 
 #remove phys outliers
-dddat= dddat[-which(dddat$BDT.C< (-7)),] #drops 3
-dddat= dddat[-which(dddat$EADDC>2000),] #drops 9
+dddat[which(dddat$BDT.C< (-7)),"omit"]="y" #drops 3
+dddat[which(dddat$EADDC>2000),"omit"]="y"  #drops 9
 
 #group by index
-dddat= dddat %>% group_by(index) %>% summarise(Species=head(Species)[1],Order=head(Order)[1],Family=head(Family)[1],Genus=head(Genus)[1],Species.1=head(Species.1)[1],BDT.C=mean(BDT.C), UDT.C=mean(UDT.C),EADDC=mean(EADDC),EEDDC=mean(EEDDC), pest=mean(pest), aquatic=mean(aquatic),pupal=mean(pupal),Location=head(Location)[1],lon=mean(lon),lat=mean(lat), colony=head(colony)[1], quality=head(quality)[1], parasitoid=head(parasitoid)[1])
+dddat= dddat %>% group_by(index) %>% summarise(Species=head(Species)[1],Order=head(Order)[1],Family=head(Family)[1],Genus=head(Genus)[1],Species.1=head(Species.1)[1],BDT.C=mean(BDT.C), UDT.C=mean(UDT.C),EADDC=mean(EADDC),EEDDC=mean(EEDDC), pest=mean(pest), aquatic=mean(aquatic),pupal=mean(pupal),Location=head(Location)[1],lon=mean(lon),lat=mean(lat), colony=head(colony)[1], quality=head(quality)[1], parasitoid=head(parasitoid)[1], omit=head(omit)[1] )
 
 dddat= as.data.frame(dddat)
 
@@ -362,11 +363,18 @@ for(stat.k in 1:nrow(dddat) ){
 #saveRDS(dddat, "dddat_media.rds")
 
 ##READ BACK IN
-#setwd(paste(fdir,"out\\",sep="") )
-#phen.dat= readRDS("phendat.rds")
-#phen.fixed= readRDS("phenfix.rds")
-#ngens= readRDS("ngens.rds")
-#dddat= readRDS("dddat_media.rds")
+setwd(paste(fdir,"out\\",sep="") )
+phen.dat= readRDS("phendat.rds")
+phen.fixed= readRDS("phenfix.rds")
+ngens= readRDS("ngens.rds")
+dddat= readRDS("dddat_media.rds")
+
+#drop omit data
+dropi= which( dddat$omit=="y" )
+phen.dat= phen.dat[-dropi,,,]
+phen.fixed= phen.fixed[-dropi,,]
+ngens= ngens[-dropi,]
+dddat= dddat[-dropi,]
 
 #============================================================
 #STATISTICS 
@@ -410,10 +418,10 @@ world <- map_data("world")
 names(dddat)[which(names(dddat)=="BDT.C")]<-"T0"
 names(dddat)[which(names(dddat)=="EADDC")]<-"DDD"
 
-w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black") +theme_bw()+ 
-  coord_fixed(1.3) +ylim(c(-55,80))+xlim(c(-170,195))
+w1= ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill=NA, color="black")+ 
+  coord_fixed(1.3) +ylim(c(-55,80))+xlim(c(-170,195))+theme_bw()
 w2= w1 +xlab("Longitude (°)")+ylab("Latitude (°)")
-w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= log(T0), size=log(DDD) )) + scale_color_gradientn(colours=matlab.like(10))+ scale_size_continuous(range = c(1,4)) #+ theme(legend.position="bottom") +, alpha = 1/10
+w3= w2+ geom_point(data = dddat, aes(x = lon, y = lat, color= T0, size=log(DDD) )) + scale_color_gradientn(colours=rev(matlab.like(10)))+ scale_size_continuous(range = c(1,4)) #+ theme(legend.position="bottom") +, alpha = 1/10
 
 #-------------------
 #D0, DD reg, Number generations
@@ -448,43 +456,23 @@ dev.off()
 #============================================
 #Fig. 3 LATITUDINAL GRADIENTS IN DATA
 
-#ANALYZE DEVELOPMENTAL CONSTRAINTS
-dat=dddat
-
-p<- ggplot(data=dat, aes(x=abs(lat), y = T0, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +theme_bw()
-# +xlab("Physiological temperature limit (°C)")+ylab("Cold range boundary temperature (°C)") 
-p + geom_point()
-
-p<- ggplot(data=dat, aes(x=abs(lat), y = DDD, shape=as.factor(pest), color=as.factor(pupal), size= as.factor(aquatic))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +theme_bw()
-p + geom_point()
-
-p<- ggplot(data=dat, aes(x=T0, y = DDD, shape=as.factor(pupal), color=abs(lat), size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24) +theme_bw()
-p + geom_point()
-
-p<- ggplot(data=dat, aes(x=T0, y = DDD, shape=as.factor(pupal), color=abs(lat) )) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24) +theme_bw()
-p + geom_point()
-
-#color by latitude
-p<- ggplot(data=dat, aes(x=T0, y = DDD, shape=as.factor(pupal), color=Order, size= as.factor(pest))) + scale_shape_manual(values = c(1,19)) + scale_size_manual(values = c(4,8)) +ylim(0,1600) +xlim(-5,24)
-p + geom_point() +theme_bw()
-
-#---------------------
 #plots by order
+dat=dddat
 
 #restrict to orders with data
 dat2=dat[dat$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") ,]
 #Neuroptera   Thysanoptera
 dat2$pupal= as.factor(dat2$pupal)
 
-p<- ggplot(data=dat2, aes(x=T0, y = DDD, shape=pupal, color=Family ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(0,1600) +xlim(-5,24) +scale_colour_discrete(guide = FALSE)+theme_bw()  #abs(lat)
-p1= p + geom_point() 
+p<- ggplot(data=dat2, aes(x=T0, y = DDD, color=abs(lat) ))+facet_grid(.~Order) +theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)))
+p1= p + geom_point()  #+shape=pupal #+scale_colour_discrete(guide = FALSE) + scale_shape_manual(values = c(1,19))
 
 #by latitude
-p<- ggplot(data=dat2, aes(x=abs(lat), y = T0, shape=pupal, color=log(DDD) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(-5,24) +xlab("Absolute latitude (°)")+theme_bw() #+ scale_color_gradientn(colours=matlab.like(10)) #+scale_shape_discrete(guide = FALSE)
-p2= p + geom_point() +geom_smooth(method=lm, se=FALSE)
+p<- ggplot(data=dat2, aes(x=abs(lat), y = T0, color=log(DDD) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +xlab("Absolute latitude (°)")+theme_bw() + scale_color_gradientn(colours=matlab.like(20)) #+scale_shape_discrete(guide = FALSE)
+p2= p + geom_point() +geom_smooth(method=lm, se=FALSE, colour="grey")
 
-p<- ggplot(data=dat2, aes(x=abs(lat), y = DDD, shape=pupal, color=log(T0) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +ylim(0,1600)+xlab("Absolute latitude (°)") +theme_bw() #+ scale_color_gradientn(colours=matlab.like(10)) #+scale_shape_discrete(guide = FALSE)
-p3= p + geom_point() 
+p<- ggplot(data=dat2, aes(x=abs(lat), y = DDD, color=T0 ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +xlab("Absolute latitude (°)") +theme_bw() + scale_color_gradientn(colours=matlab.like(20)) #+scale_shape_discrete(guide = FALSE)
+p3= p + geom_point() +geom_smooth(method=lm, se=FALSE, colour="grey")
 
 #--------------------
 setwd(paste(fdir,"figures\\",sep="") )
@@ -525,9 +513,12 @@ for(i in 1:5){
   
   colnames(phen.dat2)[1]="siteID"
   
-  #SUBSET SITES RANDOMLY TO 25% TOMAKE PLOT MORE CLEAR
-  phen.dat2= phen.dat2[sample(1:nrow(phen.dat2),nrow(phen.dat2)/2 ),]
+  #SUBSET SITES RANDOMLY TO 50% TOMAKE PLOT MORE CLEAR
+  #phen.dat2= phen.dat2[sample(1:nrow(phen.dat2),nrow(phen.dat2)/2 ),]
   
+  ###SAVE DATA
+  #write.csv(phen.dat2, "TmeanByGen.csv")
+  #write.csv(phen.dat2, "DaysByGen.csv")
   #---------------------------------
   #!  ## CLUST BY LAT
   #latitude aggregate
@@ -583,6 +574,9 @@ for(i in 1:5){
   phen.dat4= phen.dat3[which(!is.na(phen.dat3$phen)) ,]
   phen.dat4= phen.dat3[which(phen.dat3$phen>1) ,] #get rid of erroneous phenology values of 1
   
+  #remove intermediate latitudes
+  phen.dat4= phen.dat4[which(phen.dat4$abslat<35 | phen.dat4$abslat>40) ,]
+  
   plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=abs(lat))) +geom_line() + labs(y = ylabs[i])+theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)),name="Absolute \nlatitude (°)")+xlab("Generation")
 
     if(i %in% c(2,4)) plot1 = ggplot(phen.dat4, aes(x=gen, y=phen, group=siteID, color=-abs(lat))) +geom_line() + labs(y = ylabs[i])+ylim(0, 10)+xlab("Generation")
@@ -627,8 +621,8 @@ dev.off()
 #==============================================
 #Fig 5. PATTERNS ACROSS TIME: adult phenology, number generations; dev temperature, dev temp sd; adult temperature, adult temp sd (only phenological advancements). [dev 10th quantile]
 
-ylabs= c("Adult phenology (J)","Number generations", "Developmental temperature mean (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
-mylabs= c("Slope of adult phenology (J)","Slope of number generations", "Slope of developmental temperature mean (°C)","Slope of developmental temperature sd (°C)", "Slope of adult temperature mean (°C)", "Slope of adult temperature sd (°C)")
+ylabs= c("Mean of adult phenology (J)","Mean of number generations", "Mean of developmental temperature (°C)","Developmental temperature sd (°C)", "Adult temperature mean (°C)", "Adult temperature sd (°C)")
+mylabs= c("Slope of adult phenology (J)","Slope of number generations", "Slope of developmental temperature (°C)","Slope of developmental temperature sd (°C)", "Slope of adult temperature mean (°C)", "Slope of adult temperature sd (°C)")
 
 #slore slope data
 phen.slopes= dddat[,c("Species","Order","lon","lat", "T0","DDD")]
@@ -674,13 +668,13 @@ for(i in 1:6){
   phen.dat4$year= as.numeric(phen.dat4$year)  
   
   #-------------------
+  ylims=quantile(phen.dat4$T, probs= c(0.05,0.95), na.rm=TRUE )
   
-  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + theme(legend.position="bottom") + scale_color_manual(labels = c("0-25", "25-35","35-40","40-50","50-90"), values = rainbow(5) ) +labs(color = "Absolute latitude (°)")+ylab(ylabs[i])+xlab("Years")
-  
+  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + theme(legend.position="bottom") + scale_color_manual(labels = c("0-25", "25-35","35-40","40-50","50-61"), values = rainbow(5) ) +labs(color = "Absolute latitude (°)")+ylab(ylabs[i])+xlab("Years")+ylim(ylims)
+ 
   #----------------------------------
   # CALCULATE SLOPES
   
-  # CALCULATE SLOPES
   ys= as.numeric( colnames(phen.dat2)[8:ncol(phen.dat2)])
   
   slopes= apply(phen.dat2[8:(ncol(phen.dat2)-2)], MARGIN=1, FUN=calcm, ys=ys)
@@ -691,6 +685,7 @@ for(i in 1:6){
   phen.slopes= cbind(phen.slopes, phen.dat3$Estimate, phen.dat3$P)
   
   #code significant shifts
+  phen.sig=phen.dat3
   phen.sig$sig=0
   phen.sig$sig[which(phen.dat3$P<0.05)]=1
   
@@ -698,8 +693,7 @@ for(i in 1:6){
   #if(i==5) phen.sig= subset(phen.sig, phen.sig$Estimate<1)
   ylims=quantile(phen.sig$Estimate, probs= c(0.05,0.95), na.rm=TRUE )
   
-  plotm=  ggplot(phen.sig, aes(x=abs(lat), y=Estimate)) +geom_point(aes(colour = log(T0), shape=factor(sig)))  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + ylab(mylabs[i]) +xlab("Absolute Latitude (°)") +ylim(ylims) +
-    scale_shape_manual(values=c(1, 19)) + guides(shape=FALSE)
+  plotm=  ggplot(phen.sig, aes(x=abs(lat), y=Estimate)) +geom_point(aes(colour = T0, shape=factor(sig)))  +geom_smooth(method=lm, se=TRUE, color="black")+theme_bw(base_size = 18) + ylab(mylabs[i]) +xlab("Absolute Latitude (°)") +ylim(ylims) +scale_shape_manual(values=c(1, 19)) + guides(shape=FALSE)+ scale_color_gradientn(colours=matlab.like(20))
   
   #------------------------------
   #Store plots over time
@@ -739,8 +733,8 @@ setwd(paste(fdir,"figures\\",sep="") )
 pdf("TimePlots.pdf", height = 6, width = 12)
 
 layout(matrix(c(1,1), 2, 1, byrow = TRUE))
-fig5= grid_arrange_shared_legend(p1, p2, p3, ncol = 3, nrow = 1)
-fig6= grid_arrange_shared_legend(p1m, p2m, p3m, ncol = 3, nrow = 1)
+fig5= grid_arrange_shared_legend(p1, p3, p2, ncol = 3, nrow = 1)
+fig6= grid_arrange_shared_legend(p1m, p3m, p2m, ncol = 3, nrow = 1)
 
 dev.off()
 
@@ -774,7 +768,7 @@ phen.slopes= na.omit(phen.slopes)
 phen.slopes= phen.slopes[which(phen.slopes$phen.m>-1 & phen.slopes$phen.m<1 & phen.slopes$ngen.m>-1 & phen.slopes$dtemp.m>-1),]
 
 #shifts in temp and phenology
-fld <- with(phen.slopes, interp(x = phen.m, y = dtemp.m, z = ngen.m, duplicate=TRUE))
+fld <- with(phen.slopes, interp(x = phen.m*10, y = dtemp.m*10, z = ngen.m*10, duplicate=TRUE))
 
 gdat <- interp2xyz(fld, data.frame=TRUE)
 
@@ -783,15 +777,27 @@ p3d= ggplot(gdat) +
   geom_tile() + 
   coord_equal() +
   geom_contour(color = "white", alpha = 0.5) + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="m(number\ngenerations)") + 
-  theme_bw(base_size = 18)+xlab("m(phenology)")+ylab("m(temp)")+ theme(legend.position="right")
+  scale_fill_distiller(palette="Spectral", na.value="white", name="number generations\n (1/decade)") + 
+  theme_bw(base_size = 18)+xlab("phenology (days/decade)")+ylab("temperature (°C/decade)")+ theme(legend.position="right")+ theme(legend.position="right")+ coord_fixed(ratio = 4)
+
+#scatter plot
+#p3d= ggplot()+geom_point(data = phen.slopes, aes(x = phen.m, y = dtemp.m, color=ngen.m))+theme_bw()+ scale_color_gradientn(colours=matlab.like(20)) 
+
+#number data points surface
+p4d= ggplot() + stat_density2d(data=phen.slopes,geom="tile", aes(x = phen.m*10, y = dtemp.m*10, fill = ..density..), contour = FALSE) + scale_fill_gradient(low="white",high="red")+theme_bw()+xlab("phenology (days/decade)")+ylab("temperature (°C/decade)")
 
 #--------------
 #PLOT
 
 setwd(paste(fdir,"figures\\",sep="") )
-pdf("FitnessShifts.pdf", height = 10, width = 15)
+pdf("FitnessShifts.pdf", height = 10, width = 10)
 p3d
+dev.off() 
+
+#data density
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("FitnessShifts_density.pdf", height = 10, width = 10)
+p4d
 dev.off() 
 
 #==================================================================
@@ -818,9 +824,9 @@ mod1= lm(dat$T0~ dat$Order * abs(dat$lat) )
 
 ngens[is.nan(ngens)] = NA 
 
-phen.dat2= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","T0")],ngens))
-phen.dat3= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","T0")],rowMeans(ngens, na.rm=T) ))
-colnames(phen.dat3)[7]= "Ngen"
+phen.dat2= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","T0","DDD")],ngens))
+phen.dat3= as.data.frame( cbind(1:nrow(dddat), dddat[,c("Species","Order","lon","lat","T0","DDD")],rowMeans(ngens, na.rm=T) ))
+colnames(phen.dat3)[8]= "Ngen"
 
 #restrict to orders with data
 phen.dat3=phen.dat3[phen.dat3$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") ,]
@@ -883,6 +889,43 @@ setwd(paste(fdir,"figures\\",sep="") )
 pdf("FitnessSurface.pdf", height = 8, width = 12)
 
 fig6= grid_arrange_shared_legend(f1,f2,f3,f4,f5,f6, ncol = 3, nrow = 2)
+
+dev.off()
+
+#============================================
+#Fitness surface by latitude
+
+lats= c("0-25°", "25-35°","35-40°","40-50°","50-61°")
+
+phen.dat3$lcut= cut(abs(phen.dat3$lat), breaks=c(0,25,35, 40,50,90) )
+
+lcuts= sort(unique(phen.dat3$lcut))
+
+for(i in 1:5){
+  fld <- with(phen.dat3[which(phen.dat3$lcut ==lcuts[i]),], interp(x = T0, y = DDD, z = Ngen, duplicate=TRUE))
+  
+  gdat <- interp2xyz(fld, data.frame=TRUE)
+  
+  p3d= ggplot(gdat) + 
+    aes(x = x, y = y, z = z, fill = z) + 
+    geom_tile() + 
+    coord_equal() +
+    geom_contour(color = "white", alpha = 0.5) + 
+    scale_fill_distiller(palette="Spectral", na.value="white", name="Number\ngenerations") + 
+    theme_bw(base_size=18)+xlab("T0 (°C)")+ylab("DDD")+ggtitle(lats[i])+ theme(legend.position="bottom")+ coord_fixed(ratio = 0.01) +ylim(c(0,1500))+xlim(c(-2,23))
+  
+  if(i==1) f1= p3d
+  if(i==2) f2= p3d
+  if(i==3) f3= p3d
+  if(i==4) f4= p3d
+  if(i==5) f5= p3d
+} 
+
+#plot
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("FitnessSurface_byLat.pdf", height = 6, width = 10)
+
+fig6= grid_arrange_shared_legend(f1,f2,f3,f4,f5, ncol = 3, nrow = 2)
 
 dev.off()
 
