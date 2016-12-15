@@ -2,6 +2,7 @@ fdir= "C:\\Users\\Buckley\\Google Drive\\Seasonality\\"
 
 library(ncdf)
 library(abind) #bind arrays
+library(dplyr)
 
 ##source functions
 setwd(paste(fdir,"analysis\\",sep="") )
@@ -14,6 +15,33 @@ dddat= read.csv("SeasonalityDatabase_MASTER_Nov2016.csv")
 #set to rounded median
 T0= 10
 DDD= 300
+
+#----------------------------
+degree.days.mat.na= function(Tdat,LDT){
+  dd=NA
+  
+  Tmin=Tdat[1]
+  Tmax=Tdat[2]
+  
+  if(!is.na(Tmin) &!is.na(Tmax) ){
+  # entirely above LDT
+  if(Tmin>=LDT) {dd=(Tmax+Tmin)/2-LDT}
+  
+  # intercepted by LDT
+  ## for single sine wave approximation
+  if(Tmin<LDT && Tmax>LDT){
+    alpha=(Tmax-Tmin)/2
+    theta1=asin(((LDT-(Tmax+Tmin))/alpha)*pi/180)
+    dd=1/pi*(((Tmax+Tmin)/2-LDT)*(pi/2-theta1)+alpha*cos(theta1))
+    if(!is.na(dd))if(dd<0){dd=0}
+  } #matches online calculation
+  
+  # entirely below LDT
+  if(Tmax<=LDT){ dd=0}
+  } #check NA
+    
+  return(dd)
+}
 
 #-------------------------
 #LOAD NETCDF DATA
@@ -65,20 +93,68 @@ dim(txn) #  96   73 3652    2
 txn[is.nan(txn)] = NA  
 
 #test on subset without NAs
-dd= apply(txn[10:15,11:15,1,], MARGIN=c(1,2), FUN=degree.days.mat, LDT=-5 )
+dd= apply(txn[10:15,11:15,1,], MARGIN=c(1,2), FUN=degree.days.mat.na, LDT=-5 )
 #test with NAs 
-dd= apply(txn[5:12,10:15,1,], MARGIN=c(1,2), FUN=degree.days.mat, LDT=-5 )
+dd= apply(txn[5:12,10:15,1,], MARGIN=c(1,2), FUN=degree.days.mat.na, LDT=-5 )
 
 #run on all
-#!NEED TO MODIFY FUNCTION TO DEAL WITH NAs
-dd= apply(txn, MARGIN=c(1,2,3), FUN=degree.days.mat, LDT=T0 )
+dd= apply(txn, MARGIN=c(1,2,3), FUN=degree.days.mat.na, LDT=T0 )
+
+#slow loop style 96, 73, 365
+phen.dd= array(NA, dim=c(dim(dd)[1:2],20))
+ngen.dd= array(NA, dim=dim(dd)[1:2])
+
+for(rowk in 1:nrow(dd)){
+  for(colk in 1:ncol(dd)){
+dd1= dd[rowk,colk,]
+
+if(!all(is.na(dd1))){
+
+dd1= as.data.frame(dd1)
+dd1$year= years
+dd1$j= js
+
+#revise to handle S hemisphere
+if(lat[colk]<0) 
+{inds.jd= which(dat$j>181)
+inds.jj= which(dat$j<182)
+
+dat[inds.jd, "j"] = dat$j[inds.jd] -181
+dat[inds.jj, "j"] = dat$j[inds.jj] +184
+} #end fix s hemi
+
+dat = dd1 %>% group_by(year) %>% arrange(j)  %>%  mutate(cs = cumsum(dd1))
+#fix for S hemisphere
+
+#Egg to adult DD, First date beyond threshold
+for(genk in 1:20){
+  
+  #Find phenology of generations
+  dat1 = dat %>%  group_by(year) %>% slice(which.max(cs> (genk* DDD) ))
+  phen.dd[rowk,colk,genk]= mean(dat1$j, na.rm=TRUE)
+  
+} #end gen loop
+
+#number generations
+phen.dd[rowk,colk,which(phen.dd[rowk,colk,]==1)]= NA
+ngen.dd[rowk,colk]= length(na.omit(phen.dd[rowk,colk,] ))
+
+} #end check na
+} #end loop coloumns
+} #end loop rows
+  
 
 #Calculate cumulative sum cumsum()
 #code template: dat = dat %>% group_by(year) %>% arrange(date) %>% mutate(cs = cumsum(dd)) 
+##dd.cumsum = dd1 %>% group_by(year) %>% arrange(date) %>% mutate_each( cumsum(dd)) 
 
-#Find phenology of 1st generation
+#-----------------------------------------------------
+#PLOT
+library(lattice)
+grid <- expand.grid(lon = lon, lat = lat)
 
-#Find number generations
+#plot phenology
+image(lon, rev(lat), phen.dd[,ncol(phen.dd):1,1] )
 
-
-
+#plot number generations
+levelplot(ngen.dd ~ lon * lat, data=grid)

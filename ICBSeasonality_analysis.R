@@ -664,11 +664,16 @@ for(i in 1:6){
   
   vars1= c("phen","ngens","Tmean","Tsd","Tmean.e","Tsd.e")
   
+  is.nan.data.frame <- function(x)
+    do.call(cbind, lapply(x, is.nan))
+  
+  phen.dat2[is.nan.data.frame(phen.dat2)] <- NA 
+  
   phen.dat4= aggregate(phen.dat2, list(phen.dat2$lcut), FUN=mean, na.rm=TRUE)
   names(phen.dat4)[1]= "latgroup"
   
   #convert to long format
-  phen.dat4= gather(phen.dat4, "year", "T", 9:(9+46) )
+  phen.dat4= gather(phen.dat4, "year", "T", 9:54 )
   
   #phen.dat4 <- setNames(which(names(phen.dat4)=="T"),vars1[i])
   phen.dat4$year= as.numeric(phen.dat4$year)  
@@ -676,8 +681,10 @@ for(i in 1:6){
   #-------------------
   ylims=quantile(phen.dat4$T, probs= c(0.05,0.95), na.rm=TRUE )
   
-  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + theme(legend.position="bottom") + scale_color_manual(labels = c("0-25", "25-35","35-40","40-50","50-61"), values = rainbow(5) ) +labs(color = "Absolute latitude (°)")+ylab(ylabs[i])+xlab("Years")+ylim(ylims)
+  plot.lat = ggplot(phen.dat4, aes(x=year, y=T, group= latgroup, color=latgroup)) +geom_line()  +geom_smooth(method=lm, se=TRUE)+theme_bw(base_size = 18) + theme(legend.position="bottom") + scale_color_manual(labels = c("0-25", "25-35","35-40","40-50","50-61"), values = rainbow(5) ) +labs(color = "Absolute latitude (°)")+ylab(ylabs[i])+xlab("Years") #+ylim(ylims)
  
+  phen.dat4[phen.dat4$latgroup=="(0,25]",]
+  
   #----------------------------------
   # CALCULATE SLOPES
   
