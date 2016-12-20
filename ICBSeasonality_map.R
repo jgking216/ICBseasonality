@@ -155,6 +155,8 @@ grid <- expand.grid(lon = lon, lat = lat)
 
 #plot phenology
 image(lon, rev(lat), phen.dd[,ncol(phen.dd):1,1] )
+levelplot(phen.dd[,,1] ~ lon * lat, data=grid, col.regions = terrain.colors(100) )
 
 #plot number generations
-levelplot(ngen.dd ~ lon * lat, data=grid)
+levelplot(ngen.dd ~ lon * lat, data=grid, col.regions =  terrain.colors(100) )
+
