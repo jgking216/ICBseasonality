@@ -490,6 +490,10 @@ dev.off()
 p<- ggplot(data=dat2, aes(x=T0, y = D, color=colony ))+facet_grid(.~quality) +theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)))
 p1= p + geom_point()  #+shape=pupal #+scale_colour_discrete(guide = FALSE) + scale_shape_manual(values = c(1,19))
 
+
+
+
+
 #============================================
 #Fig 4. PLOT ACCROSS GENERATIONS
 
@@ -1002,7 +1006,8 @@ mod1<- lme(G~T0*Order, data =dat1, na.action = na.omit, random = ~1|Species)
 anova(mod1)
 summary(mod1) 
 
-mod1<- lm(G~T0, data=dat1)
+#wihout accounting for species
+mod1<- lm(G~T0*Order, data=dat1)
 
 #Table 1. Anova for T0 (=BDT.C). Mixed effects model (random = 1|species)
 #NOTE: main effects of lat and Order (no sig. interaction); large random effect of species
@@ -1010,6 +1015,10 @@ mod1<- lm(G~T0, data=dat1)
 mod3m <- lme(T0~abs(lat)*Order, data =dat1, na.action = na.omit, random = ~1|Species)
 anova(mod3m)
 summary(mod3m)
+
+#check other fators
+dat.n= dat2[dat2$Order %in% ords,]
+mod3m <- lme(G~abs(lat)*Order+parasitoid+pest+aquatic+parasitoid, data =dat.n, na.action = na.omit, random = ~1|Species)
 
 #Table 2. Anova for DDD (=EADDC). Mixed effects model (random = 1|species)
 #NOTE: main effects of lat and Order, and sig. interaction large random effect of species

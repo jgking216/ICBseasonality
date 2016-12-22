@@ -131,7 +131,12 @@ for(genk in 1:20){
   
   #Find phenology of generations
   dat1 = dat %>%  group_by(year) %>% slice(which.max(cs> (genk* DDD) ))
+  
+  if(nrow(dat1)>0){
+  #get rid of 1 values
+  dat1[which(dat1$j==1),"j"]=NA
   phen.dd[rowk,colk,genk]= mean(dat1$j, na.rm=TRUE)
+  }
   
 } #end gen loop
 
@@ -151,12 +156,33 @@ ngen.dd[rowk,colk]= length(na.omit(phen.dd[rowk,colk,] ))
 #-----------------------------------------------------
 #PLOT
 library(lattice)
-grid <- expand.grid(lon = lon, lat = lat)
+library("rasterVis")
+library(maps)
+library(mapdata)
+library(maptools)
+
+#load worldmap
+data(wrld_simpl)
+
+lon1= lon
+lon1[lon1 > 180] <- lon1[lon1 > 180] - 360
+#------------------
+
+grid <- expand.grid(lon = lon1, lat = lat)
 
 #plot phenology
-image(lon, rev(lat), phen.dd[,ncol(phen.dd):1,1] )
-levelplot(phen.dd[,,1] ~ lon * lat, data=grid, col.regions = terrain.colors(100) )
+phen1= phen.dd[,,1]
+phen1[phen1<2]=NA
+
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("PhenologyMap.pdf", height = 6, width = 10)
+levelplot(phen1 ~ lon * lat, data=grid, col.regions = terrain.colors(100), ylim=c(-60,90), xlab="Longitude (°C)", ylab="Latitude (°C)", main="phenology", cex.axis=1.5, cex.lab=1.5) + 
+  layer(sp.polygons(wrld_simpl))
+dev.off()
 
 #plot number generations
-levelplot(ngen.dd ~ lon * lat, data=grid, col.regions =  terrain.colors(100) )
-
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("NgenMap.pdf", height = 6, width = 10)
+levelplot(ngen.dd ~ lon * lat, data=grid, col.regions =  terrain.colors(100), ylim=c(-60,90), xlab="Longitude (°C)", ylab="Latitude (°C)",main="number generations")+ 
+  layer(sp.polygons(wrld_simpl))
+dev.off()
