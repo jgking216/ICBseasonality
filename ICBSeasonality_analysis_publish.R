@@ -121,6 +121,8 @@ dddat[which(dddat$BDT.C< (-7)),"omit"]="y" #drops 3
 dddat[which(dddat$EADDC>2000),"omit"]="y"  #drops 9
 
 #group by index
+dddat$index= as.factor(dddat$index)
+
 dddat= dddat %>% group_by(index) %>% summarise(Species=head(Species)[1],Order=head(Order)[1],Family=head(Family)[1],Genus=head(Genus)[1],Species.1=head(Species.1)[1],BDT.C=mean(BDT.C), UDT.C=mean(UDT.C),EADDC=mean(EADDC),EEDDC=mean(EEDDC), pest=mean(pest), aquatic=mean(aquatic),pupal=mean(pupal),Location=head(Location)[1],lon=mean(lon),lat=mean(lat), quality=head(quality)[1], parasitoid=head(parasitoid)[1])
 
 dddat= as.data.frame(dddat)
@@ -436,7 +438,8 @@ dat2=dat[dat$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymeno
 dat2$pupal= as.factor(dat2$pupal)
 
 p<- ggplot(data=dat2, aes(x=T0, y = G, color=abs(lat) ))+facet_grid(.~Order) +theme_bw()+ scale_color_gradientn(colours=rev(matlab.like(20)))
-p1= p + geom_point()  #+shape=pupal #+scale_colour_discrete(guide = FALSE) + scale_shape_manual(values = c(1,19))
+p1= p + geom_point()  +geom_smooth(method=lm, se=FALSE, colour="grey")
+#+shape=pupal #+scale_colour_discrete(guide = FALSE) + scale_shape_manual(values = c(1,19))
 
 #by latitude
 p<- ggplot(data=dat2, aes(x=abs(lat), y = T0, color=log(G) ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +xlab("Absolute latitude (°)")+theme_bw() + scale_color_gradientn(colours=matlab.like(20)) #+scale_shape_discrete(guide = FALSE)
@@ -532,7 +535,6 @@ for(i in c(1,5) ){
   
 } #end loop metrics
 
-
 #-----------------------
 
 setwd(paste(fdir,"figures\\",sep="") )
@@ -549,11 +551,23 @@ print(p5,vp=vplayout(1,2))
 
 dev.off()
 
+#---------------
+#PLOT polynomial across latitude
+
+plotp = ggplot(phen.sig, aes(x=abs(lat), y=Estimate2 )) +geom_point() +theme_bw()+xlab("Absolute latitude (°)")+ylab("quadratic coefficient")
+
+setwd(paste(fdir,"figures\\",sep="") )
+pdf("FixedPhen_genPlots_quadcoeff.pdf", height = 5, width = 5)
+
+print(plotp)
+
+dev.off()
+
 #==============================================
 #Fig 5. PATTERNS ACROSS TIME: adult phenology, number generations; dev temperature
 
 ylabs= c("Mean of adult phenology (J)","Mean of number generations", "Mean of developmental temperature (°C)")
-mylabs= c("Slope of adult phenology (J)","Slope of number generations", "Slope of developmental temperature (°C)")
+mylabs= c("Slope of adult phenology (J/yr)","Slope of number generations (1/yr)", "Slope of developmental temperature (°C/yr)")
 
 #slore slope data
 phen.slopes= dddat[,c("Species","Order","lon","lat", "T0","G")]
