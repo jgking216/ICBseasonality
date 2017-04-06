@@ -637,6 +637,10 @@ for(i in 1:3){
   
   plotm=  ggplot(phen.sig, aes(x=abs(lat), y=Estimate)) +geom_point(aes(colour = T0, shape=factor(sig)))  +geom_smooth(method=lm, se=TRUE, color="black")+theme_bw(base_size = 18) + ylab(mylabs[i]) +xlab("Absolute Latitude (°)") +ylim(ylims) +scale_shape_manual(values=c(1, 19)) + guides(shape=FALSE)+ scale_color_gradientn(colours=matlab.like(20))
   
+  #---------------
+  #Analyze sig nv ns
+  aggregate(phen.sig$Estimate, by=list(phen.sig$sig), FUN=median, na.rm=TRUE) 
+  
   #------------------------------
   #Store plots over time
   #PLOT TRENDS OVER TIME
@@ -857,6 +861,9 @@ summary(mod6m)
 modn1 <- lme(log(arith.mean+1)~abs(lat)+Order+T0+G+T0:G+I(T0*T0)+I(G*G)+I(T0*T0):I(G*G)+abs(lat):Order+abs(lat):T0+abs(lat):G, data = dat1, na.action = na.omit, random = ~1|Species)
 anova(modn1)
 summary(modn1)
+
+library(lme4)
+modn2 <- glmer(log(arith.mean+1)~abs(lat)+Order+T0+G+T0:G+I(T0*T0)+I(G*G)+I(T0*T0):I(G*G)+abs(lat):Order+abs(lat):T0+abs(lat):G+1|Species, data = dat1, na.action = na.omit, family=poisson)
 
 #PHENOLOGY SHIFTS VS LAT
 #phen.slopes1= phen.slopes[phen.slopes$Order %in% ords,]
