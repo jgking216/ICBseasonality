@@ -41,10 +41,10 @@ names(dddat)[which(names(dddat)=="EADDC")]<-"G"
 #------------------------
 #Count of locations by species
 
-la.spec= dddat %>% group_by(Species) %>% summarise(Npop= length(sp.loc)  )
+la.spec= dddat %>% group_by(Species) %>% summarise(Npop= length(lon)  )
 la.spec= subset(la.spec, la.spec$Npop>4)
 
-la.dat= subset(dddat, dddat$Species %in% la$Species)
+la.dat= subset(dddat, dddat$Species %in% la.spec$Species)
 
 p<- ggplot(data=la.dat, aes(x=T0, y = G, color=Species ))+facet_grid(.~Order) +theme_bw()+ geom_point()  +geom_smooth(method=lm, se=FALSE)
 
@@ -57,7 +57,7 @@ p3<- ggplot(data=la.dat, aes(x=abs(lat), y = G, color=Species ))+facet_grid(.~Or
 #------------------------
 # BY GENUS
 
-la.gen= dddat %>% group_by(Genus) %>% summarise(Npop= length(sp.loc)  )
+la.gen= dddat %>% group_by(Genus) %>% summarise(Npop= length(lon)  )
 la.gen= subset(la.gen, la.gen$Npop>9)
 
 la.dat= subset(dddat, dddat$Genus %in% la.gen$Genus)
@@ -163,6 +163,10 @@ phen.fixed= array(NA, dim=c(nrow(la.dat), 20, 8), dimnames=list(NULL,as.characte
 
 genera= unique(la.dat$Genus)
 
+j1.all= array(NA, dim=c(length(genera),length(1970:2015),100,100) )
+t1.all= array(NA, dim=c(length(genera),length(1970:2015),100,100) )
+ngen.all= array(NA, dim=c(length(genera),length(1970:2015),100,100) )
+
 for(genus.k in 1:length(genera)){
   
   gen.dat= subset(la.dat, la.dat$Genus==genera[genus.k])
@@ -265,8 +269,8 @@ for(stat.k in 1:length(stat.inds) ){
     #cumsum within groups
     #Egg to adult DD, First date beyond threshold
     
-    js= matrix(NA, 20, length(year.loop) )
-    ts=  matrix(NA, 20, length(year.loop) )
+    js= matrix(NA, 20, length(1970:2015) )
+    ts=  matrix(NA, 20, length(1970:2015) )
     
     for(genk in 1:20){
       
@@ -282,15 +286,15 @@ for(stat.k in 1:length(stat.inds) ){
       year.loop= unique(phen$year)
       year.loop= year.loop[which(year.loop>1969 & year.loop<2016) ]
       
-      for(yeark in 1: length(year.loop)){
+     if(length(year.loop)>0) for(yeark in 1: length(year.loop)){
         
-        year1= year.loop[year.k]
+        year1= year.loop[yeark]
         j= as.numeric(phen[phen$year==year1,"j"])
         
         dat.yr= dat.dd[dat.dd$year==year1,]
         
         #FIND GEN TIME
-        j.gs= as.numeric(ifelse(genk==1, dat.yr[which.min(dat.yr$dd>0),"j"], phen.dat[stat.k,which(years.ind==yeark),(genk-1),"phen"] ))
+        j.gs= as.numeric(ifelse(genk==1, dat.yr[which.min(dat.yr$dd>0),"j"], js[genk-1,yeark] ))
         
         #TEMPS: ACROSS GENERATIONS
         ts[genk,yeark]= mean(as.numeric(unlist(dat.yr[dat.yr$j %in% j.gs:j,"tmean"])))
@@ -300,16 +304,19 @@ for(stat.k in 1:length(stat.inds) ){
       } #end year loop
     } #end GEN LOOP
     
-    #&&&&&&&&&&&
     #Number generations by year
-    phen.dat2= as.data.frame(phen.dat[stat.k,,,"phen"])
     
-    all.na= apply(phen.dat2, MARGIN=1, function(x)all(is.na(x)) )
+    #match years
+    years.match= match(year.loop, years.ind)
     
-    ngens[stat.k,]= apply(phen.dat2, MARGIN=1, FUN=function(x)length(which(x>1)) )
+    all.na= apply(js, MARGIN=1, function(x)all(is.na(x)) )
+    
+    ngen.all[genk,,stat.k,pop.k]= apply(js, MARGIN=2, FUN=function(x)length(which(x>1)) )
     #correct for years without data
-    ngens[stat.k,which(all.na==TRUE) ]=NA
+    ngen.all[genk,which(all.na==TRUE),stat.k,pop.k]=NA
     
+    j1.all[genk,,stat.k,pop.k]= js[1,]
+    t1.all[genk,,stat.k,pop.k]= ts[1,]
     
     } #end population loop
     
