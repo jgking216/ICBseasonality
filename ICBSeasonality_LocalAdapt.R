@@ -1,4 +1,4 @@
-fdir= "C:\\Users\\Buckley\\Google Drive\\Seasonality\\"
+fdir= "/Volumes/GoogleDrive/My Drive/Seasonality/"
 
 #LOAD libraries
 library(ggplot2)
@@ -11,7 +11,7 @@ library(rnoaa) #http://recology.info/2015/07/weather-data-with-rnoaa/
 library(zoo)
 
 #LOAD DATA
-setwd(paste(fdir,"out\\",sep="") )
+setwd(paste(fdir,"out/",sep="") )
 
 ##READ BACK IN
 dddat= read.csv("SeasonalityDatabase_MASTER.csv")
@@ -70,11 +70,18 @@ p2<- ggplot(data=la.dat, aes(x=abs(lat), y = T0, color=Genus ))+facet_grid(.~Ord
 
 p3<- ggplot(data=la.dat, aes(x=abs(lat), y = G, color=Genus ))+facet_grid(.~Order) + scale_shape_manual(values = c(1,19)) +xlab("Absolute latitude (°)") +theme_bw() + geom_point() +geom_smooth(method=lm, se=FALSE)
 
+#plot out
+setwd("/Volumes/GoogleDrive/My Drive/Buckley/work/ICBSeasonality/figures/LocalAdaptation/") 
+pdf("GeneraToG.pdf",height = 6, width = 10)
+p2
+p3
+dev.off()
+
 #-----------------------
 #FITNESS IMPLICATIONS
 
 #LOAD DATA
-setwd(paste(fdir,"out\\",sep="") )
+setwd(paste(fdir,"out/",sep="") )
 phen.dat= readRDS("phendat.rds")
 phen.fixed= readRDS("phenfix.rds")
 ngens= readRDS("ngens.rds")
@@ -114,7 +121,7 @@ phen.dat3= phen.dat3[which(!is.nan(phen.dat3$Ngen) ),]
 
 #--------------
 #Fitness across latitude
-ggplot(data=phen.dat3, aes(x=abs(lat), y = Ngen, color=Genus ))+facet_grid(.~Order) +theme_bw() + geom_point() +geom_smooth(method=lm, se=FALSE)
+f1=ggplot(data=phen.dat3, aes(x=abs(lat), y = Ngen, color=Genus ))+facet_grid(.~Order) +theme_bw() + geom_point() +geom_smooth(method=lm, se=FALSE)
 
 #==========================================================
 #PHENOLOGY
@@ -127,7 +134,16 @@ phen.dat2$phen= rowMeans(phen.dat2[,9:54], na.rm=TRUE)
 
 #--------------
 #Phenology across latitude
-ggplot(data=phen.dat2, aes(x=abs(lat), y = phen, color=Genus ))+facet_grid(.~Order) +theme_bw() + geom_point() +geom_smooth(method=lm, se=FALSE)
+f2=ggplot(data=phen.dat2, aes(x=abs(lat), y = phen, color=Genus ))+facet_grid(.~Order) +theme_bw() + geom_point() +geom_smooth(method=lm, se=FALSE)
+
+#plot out
+setwd("/Volumes/GoogleDrive/My Drive/Buckley/work/ICBSeasonality/figures/LocalAdaptation/") 
+pdf("Genera_ToGNgenPhenology.pdf",height = 6, width = 10)
+p2
+p3
+f1
+f2
+dev.off()
 
 #==========================================================
 #VIRTUAL RECIPROCAL TRANSPLANTS
