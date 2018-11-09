@@ -175,9 +175,9 @@ stat.coords= cbind(stations$Lon, stations$Lat)
 
 #--------------------------------
 #SET UP DATA STORAGE
-phen.dat= array(NA, dim=c(nrow(la.dat), length(1970:2015), 20, 10), dimnames=list(NULL,as.character(1970:2015),as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen", "Tmean.e.fixed", "Tmean.fixed")) )
-ngens= array(NA, dim=c(nrow(la.dat), length(1970:2015)), dimnames=list(NULL,as.character(1970:2015)))
-phen.fixed= array(NA, dim=c(nrow(la.dat), 20, 8), dimnames=list(NULL,as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen")) )
+# phen.dat= array(NA, dim=c(nrow(la.dat), length(1970:2015), 20, 10), dimnames=list(NULL,as.character(1970:2015),as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen", "Tmean.e.fixed", "Tmean.fixed")) )
+# ngens= array(NA, dim=c(nrow(la.dat), length(1970:2015)), dimnames=list(NULL,as.character(1970:2015)))
+# phen.fixed= array(NA, dim=c(nrow(la.dat), 20, 8), dimnames=list(NULL,as.character(1:20),c("phen","Tmean.e","Tsd.e","T10q.e","Tmean","Tsd","T10q","DaysGen")) )
 
 #----------------------------------
 #ANALYSIS
@@ -283,7 +283,7 @@ for(stat.k in 1:length(stat.inds) ){
     for(pop.k in 1:nrow(gen.dat) ){
     
       #dds[,pop.k,stat.k]
-      dat$dd= apply( dat[,c("tmin","tmax")], MARGIN=1, FUN=degree.days.mat, LDT=gen.dat$T0[stat.k] )
+      dat$dd= apply( dat[,c("tmin","tmax")], MARGIN=1, FUN=degree.days.mat, LDT=gen.dat$T0[pop.k] )
     
     dat.dd = dat %>% group_by(year) %>% arrange(j) %>% mutate(cs = cumsum(dd))
     
@@ -296,7 +296,7 @@ for(stat.k in 1:length(stat.inds) ){
     
     for(genk in 1:20){
       
-      phen= dat.dd %>%  group_by(year) %>% slice(which.max(cs> (genk* gen.dat$G[stat.k]) ))
+      phen= dat.dd %>%  group_by(year) %>% slice(which.max(cs> (genk* gen.dat$G[pop.k]) ))
      
       #replace eroneous values
       phen[which(phen$j==1),"j"]=NA #& phen$cs==0
@@ -367,3 +367,65 @@ ngens= ngens[-dropi,]
 dddat= dddat[-dropi,]
 
 #============================================================
+#PLOT RECIPROCAL TRANPLANT RESULTS
+
+require(reshape2); require(ggplot2)
+library(cowplot)
+
+#Does local adaptation enable more generations, earlier phenology, diff temperature?
+
+#surface plots
+#for each genus
+#across years, for each station, plot data for all populations
+
+setwd("/Volumes/GoogleDrive/My Drive/Buckley/work/ICBSeasonality/figures/LocalAdaptation/") 
+pdf("RecipTran.pdf",height = 5, width = 10)
+
+for(genus.k in 1:length(genera)){
+  
+  gen.dat= subset(la.dat, la.dat$Genus==genera[genus.k])
+  lat.ord= order(abs(gen.dat$lat))
+
+  ngen.g= ngen.all[genus.k,,lat.ord,lat.ord]
+  j1.g= j1.all[genus.k,,lat.ord,lat.ord]
+  t1.g= t1.all[genus.k,,lat.ord,lat.ord]
+
+  #melt
+  ngen.m= melt(ngen.g, varnames=c("year","station","pop") )
+  j1.m= melt(j1.g, varnames=c("year","station","pop") )
+  t1.m= melt(t1.g, varnames=c("year","station","pop") )
+  
+  #average across years
+  ngen.y= aggregate(ngen.m, by= list(ngen.m$station, ngen.m$pop), FUN=mean, na.rm=TRUE )
+  j1.y= aggregate(j1.m, by= list(j1.m$station, j1.m$pop), FUN=mean, na.rm=TRUE )
+  t1.y= aggregate(t1.m, by= list(t1.m$station, t1.m$pop), FUN=mean, na.rm=TRUE )
+  
+  #surface plots
+  
+  #ngen       
+  n.plot= ggplot(ngen.y) + 
+    aes(x = station, y = pop, z = value, fill = value) + 
+    geom_tile() + 
+    coord_equal() + 
+    scale_fill_distiller(palette="Spectral", na.value="white", name="number\ngenerations") #, breaks=c(1,2, 5,10,20)) 
+#  +theme_bw(base_size=18)+xlab("T0 (°C)")+ylab("G")+ggtitle(lats[i])+ theme(legend.position="right")+ coord_fixed(ratio = 0.01) 
+  
+  #j1
+  j.plot= ggplot(j1.y) + 
+    aes(x = station, y = pop, z = value, fill = value) + 
+    geom_tile() + 
+    coord_equal() + 
+    scale_fill_distiller(palette="Spectral", na.value="white", name="j") 
+  
+  #t1
+  t.plot= ggplot(t1.y) + 
+    aes(x = station, y = pop, z = value, fill = value) + 
+    geom_tile() + 
+    coord_equal() + 
+    scale_fill_distiller(palette="Spectral", na.value="white", name="temperature") 
+
+  plot_grid(n.plot, j.plot, t.plot, labels = c("A", "B","C"), ncol=3)
+  
+  } #end loop genera
+
+dev.off()
