@@ -10,6 +10,11 @@ library(sp)
 library(rnoaa) #http://recology.info/2015/07/weather-data-with-rnoaa/
 library(zoo)
 
+day_of_year<- function(day, format="%Y-%m-%d"){
+  day=  as.POSIXlt(day, format=format)
+  return(as.numeric(strftime(day, format = "%j")))
+}
+
 #LOAD DATA
 setwd(paste(fdir,"out/",sep="") )
 
@@ -152,7 +157,7 @@ dev.off()
 #FIND CLOSEST GHCN STATIONS
 
 #Read GGCN database inventory http://www.ncdc.noaa.gov/oa/climate/ghcn-daily/
-setwd(paste(fdir,"data\\",sep=""))
+setwd(paste(fdir,"data/",sep=""))
 stations=read.table("ghcnd-inventory.txt")
 names(stations)=c("Id","Lat","Lon","Var","FirstYear","LastYear")
 stations.un= unique(stations$Id)
@@ -178,6 +183,7 @@ phen.fixed= array(NA, dim=c(nrow(la.dat), 20, 8), dimnames=list(NULL,as.characte
 #ANALYSIS
 
 genera= unique(la.dat$Genus)
+#or switch to order?
 
 j1.all= array(NA, dim=c(length(genera),length(1970:2015),100,100) )
 t1.all= array(NA, dim=c(length(genera),length(1970:2015),100,100) )
@@ -218,7 +224,7 @@ for(stat.k in 1:length(stat.inds) ){
         dat$year=as.numeric(format(date, "%Y"))
         dat$month=as.numeric(format(date, "%m"))
         dat$day=as.numeric(format(date, "%d"))
-        dat$j= unlist(lapply(date, FUN="julian.wrap"))+1
+        dat$j= unlist(lapply(date, FUN="day_of_year"))
         
         #Format data
         dat$tmax= as.numeric(dat$tmax)
@@ -236,7 +242,7 @@ for(stat.k in 1:length(stat.inds) ){
         dat$tmin[which(dat$tmin< -200)]= NA
         
         ## FIND YEARS WITH NEARLY COMPLETE DATA
-        dat.agg= aggregate(dat, list(dat$year),FUN=count)  ### PROBLEM IF RASTER LOADED
+        dat.agg= aggregate(dat, list(dat$year),FUN=function(x)length(na.omit(x))  )  
         years= dat.agg$Group.1[which(dat.agg$tmax>300)]
         dat= dat[which(dat$year %in% years),]
         
@@ -322,17 +328,17 @@ for(stat.k in 1:length(stat.inds) ){
     
     #Number generations by year
     
-    #match years
-    years.match= match(year.loop, years.ind)
+    ##DROP?
+    #years.match= match(year.loop, years.ind)
     
     all.na= apply(js, MARGIN=1, function(x)all(is.na(x)) )
     
-    ngen.all[genk,,stat.k,pop.k]= apply(js, MARGIN=2, FUN=function(x)length(which(x>1)) )
+    ngen.all[genus.k,,stat.k,pop.k]= apply(js, MARGIN=2, FUN=function(x)length(which(x>1)) )
     #correct for years without data
-    ngen.all[genk,which(all.na==TRUE),stat.k,pop.k]=NA
+    ngen.all[genus.k,which(all.na==TRUE),stat.k,pop.k]=NA
     
-    j1.all[genk,,stat.k,pop.k]= js[1,]
-    t1.all[genk,,stat.k,pop.k]= ts[1,]
+    j1.all[genus.k,,stat.k,pop.k]= js[1,]
+    t1.all[genus.k,,stat.k,pop.k]= ts[1,]
     
     } #end population loop
     
@@ -340,18 +346,18 @@ for(stat.k in 1:length(stat.inds) ){
 } #loop genus
 
 ##SAVE OUTPUT
-#setwd(paste(fdir,"out\\",sep="") )
-#saveRDS(phen.dat, "phendat_gen.rds")
-#saveRDS(phen.fixed, "phenfix_gen.rds")
-#saveRDS(ngens, "ngens_gen.rds")
-#saveRDS(dddat, "dddat_media_gen.rds")
+setwd(paste(fdir,"out/" ,sep=""))
+saveRDS(phen.dat, "phendat_gen.rds")
+saveRDS(phen.fixed, "phenfix_gen.rds")
+saveRDS(ngens, "ngens_gen.rds")
+saveRDS(dddat, "dddat_media_gen.rds")
 
 ##READ BACK IN
-setwd(paste(fdir,"out\\",sep="") )
-phen.dat= readRDS("phendat_gen.rds")
-phen.fixed= readRDS("phenfix_gen.rds")
-ngens= readRDS("ngens_gen.rds")
-dddat= readRDS("dddat_media_gen.rds")
+# setwd(paste(fdir,"out/",sep="") )
+# phen.dat= readRDS("phendat_gen.rds")
+# phen.fixed= readRDS("phenfix_gen.rds")
+# ngens= readRDS("ngens_gen.rds")
+# dddat= readRDS("dddat_media_gen.rds")
 
 #drop omit data
 dropi= which( dddat$omit=="y" )
