@@ -385,7 +385,9 @@ for(genus.k in 1:length(genera)){
   
   gen.dat= subset(la.dat, la.dat$Genus==genera[genus.k])
   lat.ord= order(abs(gen.dat$lat))
-
+  #order lats
+  lats= round(gen.dat$lat[lat.ord],2)
+  
   ngen.g= ngen.all[genus.k,,lat.ord,lat.ord]
   j1.g= j1.all[genus.k,,lat.ord,lat.ord]
   t1.g= t1.all[genus.k,,lat.ord,lat.ord]
@@ -400,31 +402,43 @@ for(genus.k in 1:length(genera)){
   j1.y= aggregate(j1.m, by= list(j1.m$station, j1.m$pop), FUN=mean, na.rm=TRUE )
   t1.y= aggregate(t1.m, by= list(t1.m$station, t1.m$pop), FUN=mean, na.rm=TRUE )
   
-  #surface plots
+  #add lat
+  ngen.y$source.lat= abs(lats[ngen.y$pop]);  ngen.y$trans.lat= abs(lats[ngen.y$station])
+  j1.y$source.lat= abs(lats[j1.y$pop]);  j1.y$trans.lat= abs(lats[j1.y$station])
+  t1.y$source.lat= abs(lats[t1.y$pop]);  t1.y$trans.lat= abs(lats[t1.y$station])
   
+  #surface plots # x = source.lat, y = trans.lat
   #ngen       
   n.plot= ggplot(ngen.y) + 
-    aes(x = station, y = pop, z = value, fill = value) + 
+    aes(x = factor(source.lat), y = factor(trans.lat), z = value, fill = value) + 
     geom_tile() + 
     coord_equal() + 
-    scale_fill_distiller(palette="Spectral", na.value="white", name="number\ngenerations") #, breaks=c(1,2, 5,10,20)) 
+    scale_fill_distiller(palette="Spectral", na.value="white", name="number\ngenerations")+
+    theme(legend.position="bottom", axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(title=genera[genus.k], x="Source Lat", y="Transplant Lat")
+    #, breaks=c(1,2, 5,10,20)) 
 #  +theme_bw(base_size=18)+xlab("T0 (°C)")+ylab("G")+ggtitle(lats[i])+ theme(legend.position="right")+ coord_fixed(ratio = 0.01) 
   
   #j1
   j.plot= ggplot(j1.y) + 
-    aes(x = station, y = pop, z = value, fill = value) + 
+    aes(x = factor(source.lat), y = factor(trans.lat), z = value, fill = value) + 
     geom_tile() + 
     coord_equal() + 
-    scale_fill_distiller(palette="Spectral", na.value="white", name="j") 
+    scale_fill_distiller(palette="Spectral", na.value="white", name="j")+
+    theme(legend.position="bottom", axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(title=genera[genus.k], x="Source Lat", y="Transplant Lat")
   
   #t1
   t.plot= ggplot(t1.y) + 
-    aes(x = station, y = pop, z = value, fill = value) + 
+    aes(x = factor(source.lat), y = factor(trans.lat), z = value, fill = value) + 
     geom_tile() + 
     coord_equal() + 
-    scale_fill_distiller(palette="Spectral", na.value="white", name="temperature") 
+    scale_fill_distiller(palette="Spectral", na.value="white", name="temperature") + 
+    theme(legend.position="bottom", axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(title=genera[genus.k], x="Source Lat", y="Transplant Lat")
 
-  plot_grid(n.plot, j.plot, t.plot, labels = c("A", "B","C"), ncol=3)
+  p1= plot_grid(n.plot, j.plot, t.plot, labels = c("A", "B","C"), ncol=3)
+  print(p1)
   
   } #end loop genera
 
