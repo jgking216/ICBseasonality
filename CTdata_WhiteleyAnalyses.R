@@ -100,6 +100,13 @@ ggplot(data=dddat.o, aes(x=abs(lat), y=LT, color=BDT.C))+geom_point()+geom_smoot
 ggplot(data=dddat.o, aes(x=abs(lat), y=ET, color=BDT.C))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(-5,25)
 ggplot(data=dddat.o, aes(x=abs(lat), y=TP, color=BDT.C))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(-5,25)
 
+#subset of orders
+dddat.o= subset(dddat, dddat$Order %in% c("Coleoptera", "Lepidoptera","Diptera","Hymenoptera") )
+#melt
+dat2= melt(dddat.o, id.vars=c("index","Species","lat","Order") , measure.vars=c("ET","LT","TP","BDT.C"))
+
+ggplot(data=dat2, aes(x=abs(lat), y=value))+geom_point()+facet_grid(Order~variable)+geom_smooth(method="lm",se=TRUE, alpha=0.4)+ylim(0,25)
+
 #G
 ggplot(data=dddat.o, aes(x=abs(lat), y=DE, color=BDT.C))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(0,300)
 ggplot(data=dddat.o, aes(x=abs(lat), y=DLT, color=BDT.C))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(0,500)
@@ -107,15 +114,26 @@ ggplot(data=dddat.o, aes(x=abs(lat), y=DP, color=BDT.C))+geom_point()+geom_smoot
 
 #---
 #PLOT RESIDUALS ACROSS LATITUDE
+dddat1= dddat.o[which(!is.na(dddat.o$ET)&!is.na(dddat.o$LT)&!is.na(dddat.o$TP)),]
+#just coleoptera and lepidoptera
+#dddat1= dddat1[which(dddat1$Order %in% c("Coleoptera","Lepidoptera")),]
 
 #larval vs egg
-dat.sub2= dddat.o[which(!is.na(dddat.o$LT) & !is.na(dddat.o$ET)),]
-mod1=lm(dat.sub2$LT~dat.sub2$ET)
-dat.sub2$resid= mod1$residuals
-ggplot(data=dat.sub2, aes(x=abs(lat), y=resid, color=BDT.C))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(-10,10)
-#1:1
-ggplot(data=dat.sub2, aes(x=abs(lat), y=LT-ET, color=BDT.C))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(-10,10)
+mod1=lm(LT~ET, data=dddat1)
+dddat1$resid.EL= mod1$residuals
+#pupal vs larval
+mod1=lm(TP~LT, data=dddat1)
+dddat1$resid.LP= mod1$residuals
+#pupal vs egg
+mod1=lm(TP~ET, data=dddat1)
+dddat1$resid.EP= mod1$residuals
 
+#melt
+dat2= melt(dddat1, id.vars=c("index","Species","lat","Order") , measure.vars=c("resid.EL","resid.LP","resid.EP"))
+
+ggplot(data=dat2, aes(x=abs(lat), y=value))+geom_point()+facet_grid(Order~variable)+geom_smooth(method="lm",se=TRUE, alpha=0.4)+ylim(-10,10)
+
+#----
 #pupal vs larval
 dat.sub2= dddat.o[which(!is.na(dddat.o$LT) & !is.na(dddat.o$TP)),]
 mod1=lm(dat.sub2$TP~dat.sub2$LT)
@@ -146,16 +164,32 @@ dddat1$ind=1:nrow(dddat1)
 #mean across index
 ### Passing further arguments through ...
 ##dcast(ffm, treatment ~ ., sum)
-
+dddat1= dcast(dddat1, index ~., fun.aggregate = mean, value.var=c("ET","LT","TP") )
+dddat1= aggregate(dddat1, list(dddat1$index,dddat1$Species,dddat1$lat,dddat1$Order), FUN="mean")
+names(dddat1)[1:4]= c("index","Species","lat","Order")
 
 #melt
-dat2= melt(dddat1, id.vars=c("ind","Species","lat","Order") , measure.vars=c("ET","LT","TP"))
+dat2= melt(dddat1, id.vars=c("index","Species","lat","Order") , measure.vars=c("ET","LT","TP"))
 
-ggplot(data=dat2, aes(x=variable, y=value, group=ind,color=abs(lat)))+geom_line(lwd=0.5)+facet_wrap(~Order)+ylim(0,22) #+geom_smooth(method="lm",se=FALSE, alpha=0.4)
+ggplot(data=dat2, aes(x=variable, y=value, group=index,color=abs(lat)))+geom_line(lwd=0.5)+facet_wrap(~Order)+ylim(0,22) #+geom_smooth(method="lm",se=FALSE, alpha=0.4)
 
-#dat3= na.omit(dat2)
-#mod1= lme(value~variable+lat, random=~value|index, data= dat3)
-mod1= lme(Cdd_seas~elevation*period,random=~1|Year , data=clim3)
+#-----
+#STATS
+#leps
+dat3= dat2[which(dat2$Order=="Lepidoptera"),]
+mod1= lme(value~variable+abs(lat), random=~1|index, data= dat3)
+#T0: larval lower, pupal (NS) higher than egg
+#T0 decreases with latitude
+
+#coleoptera
+dat3= dat2[which(dat2$Order=="Coleoptera"),]
+mod1= lme(value~variable*abs(lat), random=~1|index, data= dat3)
+#T0
+#T0 decreases with latitude
+
+#by species
+mod1= lme(value~variable+abs(lat), random=~1|Species, data= dat3)
+#random sd other se
 
 #=================
 #CHECK GLOBTHERM FOR ONTOGENETIC DATA
