@@ -159,7 +159,7 @@ library(nlme)
 #find species with all data
 dddat1= dddat.o[which(!is.na(dddat.o$ET)&!is.na(dddat.o$LT)&!is.na(dddat.o$TP)),]
 #just coleoptera and lepidoptera
-dddat1= dddat1[which(dddat1$Order %in% c("Coleoptera","Lepidoptera")),]
+#dddat1= dddat1[which(dddat1$Order %in% c("Coleoptera","Lepidoptera")),]
 dddat1$ind=1:nrow(dddat1)
 #mean across index
 ### Passing further arguments through ...
@@ -189,7 +189,65 @@ mod1= lme(value~variable*abs(lat), random=~1|index, data= dat3)
 
 #by species
 mod1= lme(value~variable+abs(lat), random=~1|Species, data= dat3)
-#random sd other se
+#standard deviations
+#COLEOPTERA: 2.02 intercept, 
+
+#across orders
+mod1= lme(value~variable*abs(lat)*Order, random=~1|Species, data= dat2)
+
+#------------------------
+#plot out develop time in different stages across temperature
+#BDT.C, ET, LT, 
+#EADDC, DE, DLT, DP
+
+temps=15:40
+
+dt= function(temp, T0, G){
+dev=NA
+if(temp>T0)  dev= G/(temp-T0)
+return(dev)
+}
+
+#PLOT DT BY STAGE
+dat.sub=dddat.o[dddat.o$Genus=="Liriomyza",]
+#dat.sub=dddat.o[dddat.o$Species=="Pieris brassicae",]
+
+dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
+dat.sub1= dat.sub1[c(5,8,10),]
+
+par(mfrow=c(1,3))
+
+for(k in 1:nrow(dat.sub1)){
+dat.sub= dat.sub1[k,]
+dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
+#if(k==1) 
+plot(temps, dt.e, type="l", ylim=c(0,30), col=heat.colors(nrow(dat.sub1))[k])
+#if(k>1)points(temps, dt.e, type="l", col=heat.colors(nrow(dat.sub1))[k])
+dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
+points(temps, dt.e+dt.l, type="l", col=heat.colors(nrow(dat.sub1))[k])
+dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
+points(temps, dt.e+dt.l+dt.p, type="l", col=heat.colors(nrow(dat.sub1))[k])
+}
+
+#PLOT G BY T
+dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
+dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
+
+par(mfrow=c(1,1))
+
+for(k in 1:nrow(dat.sub1)){
+  dat.sub= dat.sub1[k,]
+  dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
+  dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
+  dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
+  if(k==1) plot(temps, 1/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k])
+  if(k>1) points(temps, 1/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k])
+  #plot larval as proportion of total
+  
+}
+
+
+
 
 #=================
 #CHECK GLOBTHERM FOR ONTOGENETIC DATA
