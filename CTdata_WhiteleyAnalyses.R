@@ -184,6 +184,8 @@ mod1= lme(value~variable+abs(lat), random=~1|index, data= dat3)
 #coleoptera
 dat3= dat2[which(dat2$Order=="Coleoptera"),]
 mod1= lme(value~variable*abs(lat), random=~1|index, data= dat3)
+mod1= lme(value~variable, random=~1|index, data= dat3)
+
 #T0
 #T0 decreases with latitude
 
@@ -194,6 +196,7 @@ mod1= lme(value~variable+abs(lat), random=~1|Species, data= dat3)
 
 #across orders
 mod1= lme(value~variable*abs(lat)*Order, random=~1|Species, data= dat2)
+#model selection without random than random effect
 
 #------------------------
 #plot out develop time in different stages across temperature
@@ -233,21 +236,62 @@ points(temps, dt.e+dt.l+dt.p, type="l", col=heat.colors(nrow(dat.sub1))[k])
 dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
 dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
 
-par(mfrow=c(1,1))
+par(mfrow=c(1,2))
 
+#Gen time across species
 for(k in 1:nrow(dat.sub1)){
   dat.sub= dat.sub1[k,]
   dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
   dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
   dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
-  if(k==1) plot(temps, 1/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k])
-  if(k>1) points(temps, 1/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k])
-  #plot larval as proportion of total
-  
+  if(k==1) plot(temps, dt.e+dt.l+dt.p, type="l", col=heat.colors(nrow(dat.sub1))[k])
+  if(k>1) points(temps, dt.e+dt.l+dt.p, type="l", col=heat.colors(nrow(dat.sub1))[k])
 }
 
+temps=seq(10,25,0.3)
+#plot larval as proportion of total
+for(k in 1:nrow(dat.sub1)){
+  dat.sub= dat.sub1[k,]
+  dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
+  dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
+  dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
+  if(k==1) plot(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k], ylim=c(0,1))
+  if(k>1) points(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k])
+}
 
+#LOOK FOR FECUNDITY DATA
+#dddat.o[dddat.o$Genus=="Pieris",]
+dat.sub= dddat.o
+dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
+fec=grep("fecundity",dat.sub1$Title)
+dat.sub1[fec,c("Author","Year","index","Species")]
+dat.sub1[fec[21],]
 
+#load fecundity data
+setwd("/Volumes/GoogleDrive/My Drive/Buckley/Work/ICBseasonality/data/")
+fec= read.csv('FecundTemp.csv')
+
+fec2= melt(fec, id.vars=c("Species","Temp","index") , measure.vars=c("S_adult","Long","F"))
+#Multiply S and L by 100 for plotting
+fec2[which(fec2$variable=="S_adult"),"value"]=fec2[which(fec2$variable=="S_adult"),"value"]*100
+
+ggplot(data=fec2, aes(x=Temp, y=value, color=variable))+facet_wrap(~index)+geom_line(lwd=0.5)
+
+#species with good fecundity data
+dat.sub1[dat.sub1$Species=="Platyptilia carduidactyla",]
+dat.sub1[dat.sub1$Species=="Plutella xylostella",]
+
+#-----
+#add development data for Iran population
+dddat.add= read.csv("SeasonalityDatabase_MASTER_add2019.csv")
+
+dat.sub= dddat.add
+dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
+plot(temps, dt.e, type="l", ylim=c(0,30))
+dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
+points(temps, dt.e+dt.l, type="l")
+dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
+points(temps, dt.e+dt.l+dt.p, type="l")
 
 #=================
 #CHECK GLOBTHERM FOR ONTOGENETIC DATA
