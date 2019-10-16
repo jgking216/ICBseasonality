@@ -53,25 +53,24 @@ dev.off()
 #STATS
 #leps
 dat3= dat2[which(dat2$Order=="Lepidoptera"),]
-mod1= lme(value~variable+abs(lat), random=~1|index, data= dat3)
+mod1= lme(T0~stage+abs(latitude), random=~1|index, data= dat3)
 #T0: larval lower, pupal (NS) higher than egg
 #T0 decreases with latitude
 
 #coleoptera
 dat3= dat2[which(dat2$Order=="Coleoptera"),]
-mod1= lme(value~variable*abs(lat), random=~1|index, data= dat3)
-mod1= lme(value~variable, random=~1|index, data= dat3)
+mod1= lme(T0~stage+abs(latitude), random=~1|index, data= dat3)
 
 #T0
 #T0 decreases with latitude
 
 #by species
-mod1= lme(value~variable+abs(lat), random=~1|Species, data= dat3)
+mod1= lme(T0~variable+abs(latitude), random=~1|Species, data= dat3)
 #standard deviations
 #COLEOPTERA: 2.02 intercept, 
 
 #across orders
-mod1= lme(value~variable*abs(lat)*Order, random=~1|Species, data= dat2)
+mod1= lme(T0~variable+abs(latitude)*Order, random=~1|Species, data= dat2)
 #model selection without random than random effect
 
 #------------------------
@@ -80,7 +79,7 @@ mod1= lme(value~variable*abs(lat)*Order, random=~1|Species, data= dat2)
 #BDT.C, ET, LT, 
 #EADDC, DE, DLT, DP
 
-temps=15:40
+temps=10:40
 
 dt= function(temp, T0, G){
 dev=NA
@@ -92,7 +91,6 @@ return(dev)
 #PLOT DT BY STAGE
 dat.sub=dddat.o[dddat.o$Genus=="Liriomyza",]
 #dat.sub=dddat.o[dddat.o$Species=="Pieris brassicae",]
-##! dat.sub=dddat.o[dddat.o$Species=="Plutella xylostella" | dddat.o$Species=="Platyptilia carduidactyla",]
 
 dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
 dat.sub1= dat.sub1[c(5,8,10),]
@@ -127,15 +125,14 @@ if(k>1) dt.dat= rbind(dt.dat, rbind(dt.e, dt.l, dt.p) )
 dt.dat$stage= factor(dt.dat$stage, levels=c("larvae","pupae","adult") )
 
 #make labels
-dat.sub1$label= paste("eggs: T0=", dat.sub1$ET, ", G=", dat.sub1$DE, ", larvae: T0=", dat.sub1$LT, ", G=", dat.sub1$DLT, ", pupae: T0=", dat.sub1$TP, ", G=", dat.sub1$DP, sep="")
+dat.sub1$label= paste("eggs: T0=", round(dat.sub1$ET,1), ", G=", round(dat.sub1$DE,1), ", larvae: T0=", round(dat.sub1$LT,1), ", G=", round(dat.sub1$DLT,1), ", pupae: T0=", round(dat.sub1$TP,1), ", G=", round(dat.sub1$DP,1), sep="")
+dt.dat$lab=NA
+dt.dat$lab= dat.sub1$label[match(dt.dat$index, dat.sub1$index)]
 
 #plot
-p<- ggplot(data=dt.dat, aes(x=temps, y=devtime, lty=stage))+geom_line(lwd=0.5)+facet_wrap(~index) +
-  ylab("Development time(days)")+ theme(legend.position="bottom", strip.background = element_blank(), strip.text.x = element_blank())
-#p<- p+  geom_text(data = dat.sub1,label=dat.sub1$label)
-
 pdf("Fig2_DevTime.pdf",height = 6, width = 10)
-p
+ggplot(data=dt.dat, aes(x=temps, y=devtime, lty=stage))+geom_line(lwd=0.5)+facet_wrap(~lab, labeller = label_wrap_gen()) +xlim(15,35)+ylim(0,60)+
+  ylab("Development time(days)") + theme(legend.position="bottom") #, strip.background = element_blank(), strip.text.x = element_blank()
 dev.off()
 #---------------
 #FIGURE 3
@@ -158,8 +155,16 @@ for(k in 1:nrow(dat.sub1)){
 }
 dev.off()
 
-#---------------------------------------
+#==============================
 #LOOK FOR FECUNDITY DATA
+
+dat.sub=dddat[dddat$Species=="Plutella xylostella" | dddat$Species=="Platyptilia carduidactyla",]
+#write out
+#write.csv(dat.sub, "SeasonalityDatabase_sub.csv" )
+#add development data for Iran population
+#dddat.add= read.csv("SeasonalityDatabase_MASTER_add2019.csv")
+#read back in
+dat.pp= read.csv("SeasonalityDatabase_sub.csv")
 
 #Look for papers with fecundity in title
 dat.sub= dddat.o
@@ -175,28 +180,111 @@ fec= read.csv('FecundTemp.csv')
 fec2= melt(fec, id.vars=c("Species","Temp","index") , measure.vars=c("S_adult","Long","F"))
 #Multiply S and L by 100 for plotting
 fec2[which(fec2$variable=="S_adult"),"value"]=fec2[which(fec2$variable=="S_adult"),"value"]*100
+fec2$index= as.factor(fec2$index)
 
-ggplot(data=fec2, aes(x=Temp, y=value, color=variable))+facet_wrap(~index)+geom_line(lwd=0.5)
+#make component label
+fec2$component<- "survival*100"
+fec2$component[fec2$variable=="Long"]<- "longevity"
+fec2$component[fec2$variable=="F"]<- "fecundity"
 
-#species with good fecundity data
-dat.sub1[dat.sub1$Species=="Platyptilia carduidactyla",]
-dat.sub1[dat.sub1$Species=="Plutella xylostella",]
+#FECUNDITY PLOT
+setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
+pdf("PP_FecundPlot.pdf",height = 6, width = 8)
+ggplot(data=fec2[fec2$Species %in% c("Plutella xylostella","Platyptilia carduidactyla"),], aes(x=Temp, y=value, color=component, lty=index))+facet_wrap(~Species)+geom_line(lwd=0.5)+
+  guides(lty = FALSE)
+dev.off()
 
-#-----
-#add development data for Iran population
-dddat.add= read.csv("SeasonalityDatabase_MASTER_add2019.csv")
+#DEVELOPMENT PLOT
+dat.sub1= dat.pp[which(!is.na(dat.pp$ET)&!is.na(dat.pp$LT)&!is.na(dat.pp$TP)&!is.na(dat.pp$DE)&!is.na(dat.pp$DLT)&!is.na(dat.pp$DP)),]
+#mean across index
+dat.sub1$lab= paste(dat.sub1$Species, round(dat.sub1$lat,2), sep=" ")
+dat.sub1= aggregate(dat.sub1, list(dat.sub1$lab,dat.sub1$Species,dat.sub1$index,dat.sub1$lat,dat.sub1$Order), FUN="mean")
+names(dat.sub1)[1:5]= c("lab","Species","index","lat","Order")
 
-dat.sub= dddat.add
-dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
-plot(temps, dt.e, type="l", ylim=c(0,30))
-dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
-points(temps, dt.e+dt.l, type="l")
-dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
-points(temps, dt.e+dt.l+dt.p, type="l")
+#PLOT DEV TIME
+temps=10:40
 
+for(k in 1:nrow(dat.sub1)){
+  dat.sub= dat.sub1[k,]
+  
+  dt.e1=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
+  dt.e= as.data.frame(cbind(temps, dt.e1))
+  dt.e$lab= dat.sub$lab
+  dt.e$index= dat.sub$index
+  dt.e$species= dat.sub$Species
+  dt.e$stage= "larvae"
+  colnames(dt.e)[2]<-"devtime"
+  
+  dt.l1=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
+  dt.l= as.data.frame(cbind(temps, dt.l1+dt.e1))
+  dt.l$lab= dat.sub$lab
+  dt.l$index= dat.sub$index
+  dt.l$species= dat.sub$Species
+  dt.l$stage= "pupae"
+  colnames(dt.l)[2]<-"devtime"
+  
+  dt.p1=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
+  dt.p= as.data.frame(cbind(temps, dt.p1+dt.l1+dt.e1))
+  dt.p$lab= dat.sub$lab
+  dt.p$index= dat.sub$index
+  dt.p$species= dat.sub$Species
+  dt.p$stage= "adult"
+  colnames(dt.p)[2]<-"devtime"
+  
+  if(k==1) dt.dat= rbind(dt.e, dt.l, dt.p)
+  if(k>1) dt.dat= rbind(dt.dat, rbind(dt.e, dt.l, dt.p) )
+}
+dt.dat$stage= factor(dt.dat$stage, levels=c("larvae","pupae","adult") )
 
+#make labels
+dat.sub1$label= paste("eggs: T0=", dat.sub1$ET, ", G=", dat.sub1$DE, ", larvae: T0=", dat.sub1$LT, ", G=", dat.sub1$DLT, ", pupae: T0=", dat.sub1$TP, ", G=", dat.sub1$DP, sep="")
+#dt.dat$index= factor(dt.dat$index)
 
+#plot
+pdf("PP_DevTime.pdf",height = 8, width = 8)
+ggplot(data=dt.dat, aes(x=temps, y=devtime, lty=stage))+geom_line(lwd=0.5)+facet_wrap(~lab) + xlim(15,35)+ylim(0,60)+
+  ylab("Development time(days)")+ theme(legend.position="bottom")
+#p<- p+  geom_text(data = dat.sub1,label=dat.sub1$label)
+dev.off()
 
+#Continue component plot
+fec3= fec2[(fec2$Species %in% c("Plutella xylostella","Platyptilia carduidactyla")),]
+comp= fec3[,c("Species", "Temp", "index", "value", "component")]
 
+dev= dt.dat[dt.dat$stage=="adult",c("species", "temps", "index", "devtime")]
+dev= dev[dev$index %in% c(1.1,924),]
+names(dev)<- c("Species", "Temp", "index", "value")
+dev$component= "devtime"
+comp= rbind(comp,dev)
+#restrict to two populations
+comp=comp[comp$index %in% c(1.1,924),]
 
+#estimate r
+#cast
+comp1 <- dcast(comp, Species+Temp~component, mean)
+comp1$surv= comp1[,6]/100
+#restrict to available fecundity
+comp1 <- comp1[!is.na(comp1$fecundity),]
+#estimate plutella survival ##FIX
+inds= which(comp1$Species=="Platyptilia carduidactyla")
+comp1[is.na(comp1$surv),"surv"]= 1-(1/comp1[inds, "longevity"])/10*comp1[inds, "devtime"]
+
+#calculate r=ln(sf)/G
+comp1$r= log(comp1$surv*comp1$fecundity)/comp1$devtime
+#melt
+comp2= melt(comp1, id.vars=c("Species","Temp") , measure.vars=c("devtime","fecundity","surv","r"))
+
+#make label
+comp2$label= "G: generation length (days)"
+comp2$label[comp2$variable=="fecundity"]="f: fecundity"
+comp2$label[comp2$variable=="surv"]="s: survival"
+comp2$label[comp2$variable=="r"]="r= ln(sf)/G"
+comp2$label= factor(comp2$label, levels=c("s: survival","f: fecundity","G: generation length (days)","r= ln(sf)/G") )
+
+#FIGURE 4
+setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
+pdf("Fig4__FitComponentPlot.pdf",height = 8, width = 6)
+ggplot(data=comp2, aes(x=Temp, y=value))+facet_grid(label~Species, scales="free_y")+geom_line(lwd=0.5)+
+  ylab("fitness component value")+xlab("Temperature (C)")
+dev.off()
 

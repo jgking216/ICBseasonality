@@ -1,5 +1,10 @@
+library(ggplot2)
+library(reshape2)
+library(nlme)
+
 setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/data/")
 
+#CHECK OUT HOFFMANDATA FOR MATCHES; FEW
 dat1= read.csv("Hoffmannetal2012_1.csv")
 dat2= read.csv("Hoffmannetal2012_2.csv")
 
@@ -20,7 +25,7 @@ match(dat2.p$Species.name, dat2.a$Species.name)
 dat2.a[c(117,137,149,263,264),]
 
 #----------------------------------
-#DEVEL DATA
+#DEVELOPMENT DATA
 fdir= "/Volumes/GoogleDrive/My Drive/Seasonality/"
 setwd(paste(fdir,"out/",sep="") )
 dddat= read.csv("SeasonalityDatabase_MASTER.csv")
@@ -73,11 +78,7 @@ abline(a=0,b=1)
 mod1=lm(dddat$LT~dddat$ET)
 abline(mod1, lty="dashed")
 
-plot(dddat$ET, dddat$TP, xlim=c(-5,25), ylim=c(-5,25))
-abline(a=0,b=1)
-mod1=lm(dddat$TP~dddat$ET)
-abline(mod1, lty="dashed")
-
+#Compare stages
 ggplot(data=dddat, aes(x=ET, y=LT, color=abs(lat)))+geom_point()+geom_smooth(method="lm",se=FALSE)+ylim(-5,25)+xlim(-5,25)+geom_abline(intercept=0, slope=1)
 ggplot(data=dddat, aes(x=ET, y=TP, color=abs(lat)))+geom_point()+geom_smooth(method="lm",se=FALSE)+ylim(-5,25)+xlim(-5,25)+geom_abline(intercept=0, slope=1)
 
@@ -152,9 +153,6 @@ ggplot(data=dat.sub2, aes(x=abs(lat), y=TP-ET, color=BDT.C))+geom_point()+geom_s
 
 #--------------------
 #PLOTTING BY STAGE
-library(reshape2)
-library(ggplot2)
-library(nlme)
 
 #find species with all data
 dddat1= dddat.o[which(!is.na(dddat.o$ET)&!is.na(dddat.o$LT)&!is.na(dddat.o$TP)),]
@@ -171,6 +169,7 @@ names(dddat1)[1:4]= c("index","Species","lat","Order")
 #melt
 dat2= melt(dddat1, id.vars=c("index","Species","lat","Order") , measure.vars=c("ET","LT","TP"))
 
+#FIGURE 1
 ggplot(data=dat2, aes(x=variable, y=value, group=index,color=abs(lat)))+geom_line(lwd=0.5)+facet_wrap(~Order)+ylim(0,22) #+geom_smooth(method="lm",se=FALSE, alpha=0.4)
 
 #-----
@@ -211,6 +210,7 @@ if(temp>T0)  dev= G/(temp-T0)
 return(dev)
 }
 
+#FIGURE 2
 #PLOT DT BY STAGE
 dat.sub=dddat.o[dddat.o$Genus=="Liriomyza",]
 #dat.sub=dddat.o[dddat.o$Species=="Pieris brassicae",]
@@ -232,6 +232,7 @@ dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
 points(temps, dt.e+dt.l+dt.p, type="l", col=heat.colors(nrow(dat.sub1))[k])
 }
 
+#FIGURE 3
 #PLOT G BY T
 dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
 dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
@@ -259,8 +260,10 @@ for(k in 1:nrow(dat.sub1)){
   if(k>1) points(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k])
 }
 
+#---------------------------------------
 #LOOK FOR FECUNDITY DATA
-#dddat.o[dddat.o$Genus=="Pieris",]
+
+#Look for papers with fecundity in title
 dat.sub= dddat.o
 dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
 fec=grep("fecundity",dat.sub1$Title)
@@ -292,14 +295,6 @@ dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
 points(temps, dt.e+dt.l, type="l")
 dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
 points(temps, dt.e+dt.l+dt.p, type="l")
-
-#=================
-#CHECK GLOBTHERM FOR ONTOGENETIC DATA
-
-setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/ThermalStress/data/CTlimits/")
-
-tol.gt= read.csv('GlobalTherm_upload_10_11_17.csv')
-#ALL ADULTS
 
 
 
