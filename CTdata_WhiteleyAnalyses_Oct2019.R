@@ -2,6 +2,8 @@ library(ggplot2)
 library(reshape2)
 library(nlme)
 
+#-----------------------
+
 #DEVELOPMENT DATA
 fdir= "/Volumes/GoogleDrive/My Drive/Seasonality/"
 setwd(paste(fdir,"out/",sep="") )
@@ -12,6 +14,36 @@ dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
 dddat$omit=NA
 dddat[which(dddat$BDT.C< (-7)),"omit"]="y" #drops 3
 dddat[which(dddat$EADDC>2000),"omit"]="y"  #drops 9
+
+#------------------------
+#SUMMARIZE OTHER DATA
+#CTmax and min
+
+setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/data/")
+
+#CHECK OUT HOFFMANDATA FOR MATCHES; FEW
+dat1= read.csv("Hoffmannetal2012_1.csv")
+dat2= read.csv("Hoffmannetal2012_2.csv")
+
+#dat1, CTs, only 12 larvae
+#dat2, LTs, 316 adults, 8 eggs, 68 larvae, 3 nymphs, 21 pupae
+
+dat2.a= dat2[dat2$Life.stage=="Adults",]
+dat2.e= dat2[dat2$Life.stage=="Eggs",]
+dat2.l= dat2[dat2$Life.stage=="Larvae",]
+dat2.n= dat2[dat2$Life.stage=="Nymphs",]
+dat2.p= dat2[dat2$Life.stage=="Pupae",]
+
+#cases where LT is available for adult plut one juvenile stage
+matched= c(match(dat2.e$Species.name, dat2.a$Species.name),match(dat2.l$Species.name, dat2.a$Species.name),match(dat2.n$Species.name, dat2.a$Species.name),match(dat2.p$Species.name, dat2.a$Species.name))
+matched= na.omit(unique(matched))
+
+#----
+#Temperature size rule
+tsr= read.csv("tsr_KlokHarrison.csv")
+
+matched= na.omit(match(unique(tsr$Species), dddat$Species))
+dddat[matched,]
 
 #----------------------
 ##ACROSS STAGES
