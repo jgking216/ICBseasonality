@@ -1,3 +1,7 @@
+library(ggplot2)
+library(reshape2)
+library(nlme)
+
 setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/data/")
 
 dat1= read.csv("Hoffmannetal2012_1.csv")
@@ -21,8 +25,6 @@ dat2.a[c(117,137,149,263,264),]
 
 #----------------------------------
 #DEVEL DATA
-fdir= "/Volumes/GoogleDrive/My Drive/Seasonality/"
-setwd(paste(fdir,"out/",sep="") )
 dddat= read.csv("SeasonalityDatabase_MASTER.csv")
 ##Restrict to dat with lat / lon
 dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
@@ -91,6 +93,15 @@ plot(dddat$DLT, dddat$DP,xlim=c(0,1000))
 plot(dddat$DE/dddat$EADDC, dddat$DLT/dddat$EADDC, xlim=c(0,1),ylim=c(0,1))
 plot(dddat$DLT/dddat$EADDC, dddat$DP/dddat$EADDC,xlim=c(0,1))
 
+#STATS
+dddat.o= subset(dddat, dddat$Order %in% c("Coleoptera", "Lepidoptera","Diptera","Hymenoptera") )
+dat.t0= na.omit(dddat.o[,c("Species","Order","ET","LT","TP")])
+#convert to long format
+dat.t0= melt(dat.t0, id = c("Species","Order"))
+colnames(dat.t0)[c(3,4)]= c("stage","T0")
+
+mod1= lme(T0 ~ Order*stage, random =~stage|Species, data=dat.t0)
+
 #ACROSS LATITUDE
 #restrict to orders with sufficient data
 dddat.o= subset(dddat, dddat$Order %in% c("Coleoptera","Diptera","Hemiptera","Homoptera","Hymenoptera","Lepidoptera") )
@@ -106,6 +117,11 @@ dddat.o= subset(dddat, dddat$Order %in% c("Coleoptera", "Lepidoptera","Diptera",
 dat2= melt(dddat.o, id.vars=c("index","Species","lat","Order") , measure.vars=c("ET","LT","TP","BDT.C"))
 
 ggplot(data=dat2, aes(x=abs(lat), y=value))+geom_point()+facet_grid(Order~variable)+geom_smooth(method="lm",se=TRUE, alpha=0.4)+ylim(0,25)
+
+#stage specific variation vs latitude
+dddat.o$T0mean= rowMeans(dddat.o[,c("ET","LT","TP")])
+dddat.o$T0sd= abs(dddat.o$ET-dddat.o$T0mean)+abs(dddat.o$LT-dddat.o$T0mean)+abs(dddat.o$TP-dddat.o$T0mean)
+ggplot(data=dddat.o, aes(x=abs(lat), y=T0sd))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(-5,25)
 
 #G
 ggplot(data=dddat.o, aes(x=abs(lat), y=DE, color=BDT.C))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(0,300)
