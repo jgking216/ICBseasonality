@@ -5,8 +5,7 @@ library(nlme)
 #-----------------------
 
 #DEVELOPMENT DATA
-fdir= "/Volumes/GoogleDrive/My Drive/Seasonality/"
-setwd(paste(fdir,"out/",sep="") )
+setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/data/")
 dddat= read.csv("SeasonalityDatabase_MASTER.csv")
 ##Restrict to dat with lat / lon
 dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
@@ -18,9 +17,6 @@ dddat[which(dddat$EADDC>2000),"omit"]="y"  #drops 9
 #------------------------
 #SUMMARIZE OTHER DATA
 #CTmax and min
-
-setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/data/")
-
 #CHECK OUT HOFFMANDATA FOR MATCHES; FEW
 dat1= read.csv("Hoffmannetal2012_1.csv")
 dat2= read.csv("Hoffmannetal2012_2.csv")
@@ -55,13 +51,14 @@ dddat.o= subset(dddat, dddat$Order %in% c("Coleoptera", "Lepidoptera","Diptera",
 
 #PLOTTING BY STAGE
 
+dddat.o$ET= as.numeric(as.character(dddat.o$ET))
 #find species with all data
 dddat1= dddat.o[which(!is.na(dddat.o$ET)&!is.na(dddat.o$LT)&!is.na(dddat.o$TP)),]
 #just coleoptera and lepidoptera
 #dddat1= dddat1[which(dddat1$Order %in% c("Coleoptera","Lepidoptera")),]
 dddat1$ind=1:nrow(dddat1)
 #mean across index
-dddat1= aggregate(dddat1, list(dddat1$index,dddat1$Species,dddat1$lat,dddat1$Order), FUN="mean")
+dddat1= aggregate(dddat1, list(dddat1$index,dddat1$Species,dddat1$lat,dddat1$Order), FUN="mean", na.rm=TRUE)
 names(dddat1)[1:4]= c("index","Species","lat","Order")
 
 #melt
@@ -104,6 +101,18 @@ mod1= lme(T0~variable+abs(latitude), random=~1|Species, data= dat3)
 #across orders
 mod1= lme(T0~variable+abs(latitude)*Order, random=~1|Species, data= dat2)
 #model selection without random than random effect
+
+############
+#PARTITION VARIATION
+#index is population 
+mod1= lme(T0 ~ Order*stage, random =~stage|index, data=dat2)
+
+#stage specific variation vs latitude
+dddat1$T0mean= rowMeans(dddat1[,c("ET","LT","TP")])
+dddat1$T0sd= abs(dddat1$ET-dddat1$T0mean)+abs(dddat1$LT-dddat1$T0mean)+abs(dddat1$TP-dddat1$T0mean)
+dddat2= dddat1[,c("Order","lat","T0sd","T0mean")]
+ggplot(data=dddat2, aes(x=abs(lat), y=T0sd))+geom_point()+geom_smooth(method="lm",se=FALSE)+facet_wrap(~Order)+ylim(-5,25)
+
 
 #------------------------
 #DEVELOPMENT TIME
