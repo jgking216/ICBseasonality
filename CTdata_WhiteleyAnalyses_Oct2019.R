@@ -14,6 +14,8 @@ dddat$omit=NA
 dddat[which(dddat$BDT.C< (-7)),"omit"]="y" #drops 3
 dddat[which(dddat$EADDC>2000),"omit"]="y"  #drops 9
 
+dddat$DE= as.numeric(as.character(dddat$DE))
+
 #------------------------
 #SUMMARIZE OTHER DATA
 #CTmax and min
@@ -171,6 +173,7 @@ dt.dat$lab=NA
 dt.dat$lab= dat.sub1$label[match(dt.dat$index, dat.sub1$index)]
 
 #plot
+setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
 pdf("Fig2_DevTime.pdf",height = 6, width = 10)
 ggplot(data=dt.dat, aes(x=temps, y=devtime, lty=stage))+geom_line(lwd=0.5)+facet_wrap(~lab, labeller = label_wrap_gen()) +xlim(15,35)+ylim(0,60)+
   ylab("Development time(days)") + theme(legend.position="bottom") #, strip.background = element_blank(), strip.text.x = element_blank()
@@ -179,6 +182,12 @@ dev.off()
 #FIGURE 3
 #PLOT G BY T
 dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
+dat.sub$z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
+
+range(dat.sub$z, na.rm=T)
+cols= heat.colors(15)
+
+#compare T0s
 dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
 
 temps=seq(10,25,0.3)
@@ -191,11 +200,126 @@ for(k in 1:nrow(dat.sub1)){
   dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
   dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
   dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
+  z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
+  
+  #if(k==1) plot(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=cols[round(z+8)], ylim=c(0,1),xlim=c(15,25), ylab="Proportion development time as larvae", xlab="Temperature (C)")
+  #if(k>1) points(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=cols[round(z+8)])
   if(k==1) plot(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k], ylim=c(0,1),xlim=c(15,25), ylab="Proportion development time as larvae", xlab="Temperature (C)")
   if(k>1) points(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k])
-}
+
+  y=dt.l/(dt.e+dt.l+dt.p)
+  text(x=temps[25]+sample(-10:10,1), y = y[25], labels = dat.sub$index)
+  }
 dev.off()
 
+#-------------------------------
+#Combine former figures 2 and 3
+
+dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
+dat.sub$z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
+
+range(dat.sub$z, na.rm=T)
+cols= heat.colors(15)
+
+#compare T0s
+dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
+dat.sub1$label= paste(dat.sub1$Species, " \n eggs: T0=", round(dat.sub1$ET,1), ", G=", round(dat.sub1$DE,1), ", \n larvae: T0=", round(dat.sub1$LT,1), ", G=", round(dat.sub1$DLT,1), ", \n pupae: T0=", round(dat.sub1$TP,1), ", G=", round(dat.sub1$DP,1), sep="") #, ", z=", round(dat.sub1$z,1), ", ind=", dat.sub1$index
+
+#find good examples
+dat.sub1= dat.sub1[order(dat.sub1$z),]
+
+dat.sub1= dat.sub1[which(dat.sub1$index %in% c(805,896,946)),]
+dat.sub1= dat.sub1[c(1,2,4),]
+
+#dat.sub2= dat.sub1[,c("Species","ET","DE","LT","DLT","TP","DP")]
+
+for(k in 1:nrow(dat.sub1) ){  #nrow(dat.sub1)
+  dat.sub.sel= dat.sub1[k,]
+  
+  dt.e1=unlist(lapply(temps,FUN=dt, T0=dat.sub.sel$ET, G=dat.sub.sel$DE))
+  dt.e= as.data.frame(cbind(temps, dt.e1))
+  dt.e$species= dat.sub.sel$Species
+  dt.e$index= dat.sub.sel$index
+  dt.e$stage= "larvae"
+  colnames(dt.e)[2]<-"devtime"
+  
+  dt.l1=unlist(lapply(temps,FUN=dt, T0=dat.sub.sel$LT, G=dat.sub.sel$DLT))
+  dt.l= as.data.frame(cbind(temps, dt.l1+dt.e1))
+  dt.l$species= dat.sub.sel$Species
+  dt.l$index= dat.sub.sel$index
+  dt.l$stage= "pupae"
+  colnames(dt.l)[2]<-"devtime"
+  
+  dt.p1=unlist(lapply(temps,FUN=dt, T0=dat.sub.sel$TP, G=dat.sub.sel$DP))
+  dt.p= as.data.frame(cbind(temps, dt.p1+dt.l1+dt.e1))
+  dt.p$species= dat.sub.sel$Species
+  dt.p$index= dat.sub.sel$index
+  dt.p$stage= "adult"
+  colnames(dt.p)[2]<-"devtime"
+  
+  if(k==1) {dt.dat= cbind(rbind(dt.e, dt.l, dt.p),dat.sub.sel[,"z"]) }
+  if(k>1) dt.dat= rbind(dt.dat, cbind(rbind(dt.e, dt.l, dt.p),dat.sub.sel[,"z"]) )
+
+  }
+dt.dat$stage= factor(dt.dat$stage, levels=c("larvae","pupae","adult") )
+
+#make labels
+dt.dat$lab=NA
+dt.dat$lab= dat.sub1$label[match(dt.dat$index, dat.sub1$index)]
+dt.dat$Species= dat.sub1$Species[match(dt.dat$index, dat.sub1$index)]
+colnames(dt.dat)[6]<-"z"
+
+#plot
+#setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
+#pdf("Fig2_DevTime.pdf",height = 6, width = 10)
+plot1= ggplot(data=dt.dat, aes(x=temps, y=devtime, lty=stage))+geom_line(lwd=0.5)+facet_wrap(~lab, labeller = label_wrap_gen()) +xlim(15,25)+ ylim(0,100)+
+  ylab("Development time(days)") + theme(legend.position="bottom") #, strip.background = element_blank(), strip.text.x = element_blank()
+#dev.off()
+
+#------
+#PLOT G BY T
+dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
+dat.sub$z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
+
+range(dat.sub$z, na.rm=T)
+cols= heat.colors(15)
+
+#compare T0s
+dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
+
+temps=seq(10,25,0.3)
+
+for(k in 1:nrow(dat.sub1)){
+  dat.sub= dat.sub1[k,]
+  dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
+  dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
+  dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
+  z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
+  y= dt.l/(dt.e+dt.l+dt.p)
+  
+  dat.k=as.data.frame(cbind(k,temps,y,z))
+  dat.k$Species= dat.sub$Species
+  dat.k$index= dat.sub$index
+  if(k==1) dat.kall=dat.k
+  if(k>1) dat.kall= rbind(dat.kall, dat.k)
+}
+ 
+  #make species labels
+  dat.kall$sp.lab= dat.kall$Species
+  dat.kall$sp.lab[!dat.kall$index %in% c(805,896,946)]<- NA
+  
+#ggplot version
+  plot2l= ggplot(data=dat.kall, aes(x=temps, y=y, col=z, group=k))+geom_line(lwd=0.5)+
+  ylab("Proportion development time as larvae")+xlab("Temperature (C)")+ theme(legend.position="bottom")+    
+    geom_dl(data=dat.kall, aes(label = sp.lab), method = list(dl.combine("first.points"), hjust=0.2)) 
+
+library(cowplot)
+
+pdf("Fig23_PropLarvalDevTime.pdf",height = 6, width = 6)  
+  plot_grid(plot1, plot2l, ncol=1,
+          labels = 'AUTO')
+dev.off()
+  
 #==============================
 #LOOK FOR FECUNDITY DATA
 
