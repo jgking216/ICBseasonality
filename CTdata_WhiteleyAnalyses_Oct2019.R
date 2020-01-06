@@ -24,6 +24,12 @@ dat1= read.csv("Hoffmannetal2012_1.csv")
 dat2= read.csv("Hoffmannetal2012_2.csv")
 
 #dat1, CTs, only 12 larvae
+dat1.l= dat1[dat1$Life.stage=="Larvae",]
+dat1.a= dat1[dat1$Life.stage=="Adults",]
+
+matched= match(dat1.l$Species.name, dat1.a$Species.name)
+unique(dat1$Species.name)
+
 #dat2, LTs, 316 adults, 8 eggs, 68 larvae, 3 nymphs, 21 pupae
 
 dat2.a= dat2[dat2$Life.stage=="Adults",]
@@ -42,6 +48,26 @@ tsr= read.csv("tsr_KlokHarrison.csv")
 
 matched= na.omit(match(unique(tsr$Species), dddat$Species))
 dddat[matched,]
+
+#-------
+#Dell
+setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/ThermalStress/data/CTlimits/")
+dat.full<-read.csv('Delletal2013.csv')
+
+dat.agg= aggregate(dat.full, by=list(dat.full$DataSeriesID, dat.full$ResStage), FUN=mean)
+names(dat.agg)[1:2]=c("ID","stage")
+dat.agg=dat.agg[,1:2]
+
+dat.agg[dat.agg$ID==37409 ,]
+
+library(plyr)
+dat.agg1=count(dat.agg, 'ID')
+dat.agg1[dat.agg1$freq>1,]
+
+setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/ThermalStress/data/CTlimits/")
+tol.p= read.csv('Pinsky_dataset_1_hotwater.csv')
+tol.gt= read.csv('GlobalTherm_upload_10_11_17.csv')
+#no stage data
 
 #----------------------
 ##ACROSS STAGES
@@ -452,4 +478,5 @@ pdf("Fig4__FitComponentPlot.pdf",height = 8, width = 6)
 ggplot(data=comp2, aes(x=Temp, y=value))+facet_grid(label~Species, scales="free_y")+geom_line(lwd=0.5)+
   ylab("fitness component value")+xlab("Temperature (C)")
 dev.off()
+
 
