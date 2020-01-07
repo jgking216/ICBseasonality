@@ -16,6 +16,11 @@ dddat[which(dddat$EADDC>2000),"omit"]="y"  #drops 9
 
 dddat$DE= as.numeric(as.character(dddat$DE))
 
+#summarize
+hemi= dddat[dddat$pupal==0,]
+#find species with all data
+hemi= hemi[which(!is.na(hemi$ET)&!is.na(hemi$LT) ),]
+
 #------------------------
 #SUMMARIZE OTHER DATA
 #CTmax and min
