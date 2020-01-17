@@ -21,7 +21,7 @@ hemi= dddat[dddat$pupal==0,]
 #find species with all data
 hemi= hemi[which(!is.na(hemi$ET)&!is.na(hemi$LT) ),]
 
-#------------------------
+#=======================
 #SUMMARIZE OTHER DATA
 #CTmax and min
 #CHECK OUT HOFFMANDATA FOR MATCHES; FEW
@@ -73,8 +73,8 @@ setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/ThermalStress/data/CTl
 tol.p= read.csv('Pinsky_dataset_1_hotwater.csv')
 tol.gt= read.csv('GlobalTherm_upload_10_11_17.csv')
 #no stage data
+#=======================
 
-#----------------------
 ##ACROSS STAGES
 #BDT.C, ET, LT, 
 #EADDC, DE, DLT, DP
@@ -107,8 +107,8 @@ colnames(dat2)[6]="T0"
 setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
 pdf("Fig1_To_by_stage.pdf",height = 6, width = 6)
 ggplot(data=dat2, aes(x=stage, y=T0, group=index,color=abs(latitude)))+geom_line(lwd=0.5)+facet_wrap(~Order)+ylim(0,22) +
-  ylab("lower developmental temperature, T0 (C)")+ theme(legend.position="bottom")#+
-  scale_colour_gradientn(colours = heat.colors(10))
+  ylab("lower developmental temperature, T0 (°C)")+ theme_bw()+ theme(legend.position="bottom")+
+  scale_colour_gradientn(colours = rev(viridis(20)), name="absolute latitude (°)" )
 dev.off()
 
 #-----
@@ -135,7 +135,7 @@ mod1= lme(T0~variable+abs(latitude), random=~1|Species, data= dat3)
 mod1= lme(T0~variable+abs(latitude)*Order, random=~1|Species, data= dat2)
 #model selection without random than random effect
 
-############
+#-----------------
 #PARTITION VARIATION
 #index is population 
 mod1= lme(T0 ~ Order*stage, random =~stage|index, data=dat2)
@@ -161,90 +161,8 @@ if(temp>T0)  dev= G/(temp-T0)
 return(dev)
 }
 
+#====================
 #FIGURE 2
-#PLOT DT BY STAGE
-dat.sub=dddat.o[dddat.o$Genus=="Liriomyza",]
-#dat.sub=dddat.o[dddat.o$Species=="Pieris brassicae",]
-
-dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
-dat.sub1= dat.sub1[c(5,8,10),]
-
-for(k in 1:nrow(dat.sub1)){
-dat.sub= dat.sub1[k,]
-
-dt.e1=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
-dt.e= as.data.frame(cbind(temps, dt.e1))
-dt.e$species= dat.sub$Species
-dt.e$index= dat.sub$index
-dt.e$stage= "larvae"
-colnames(dt.e)[2]<-"devtime"
-
-dt.l1=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
-dt.l= as.data.frame(cbind(temps, dt.l1+dt.e1))
-dt.l$species= dat.sub$Species
-dt.l$index= dat.sub$index
-dt.l$stage= "pupae"
-colnames(dt.l)[2]<-"devtime"
-
-dt.p1=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
-dt.p= as.data.frame(cbind(temps, dt.p1+dt.l1+dt.e1))
-dt.p$species= dat.sub$Species
-dt.p$index= dat.sub$index
-dt.p$stage= "adult"
-colnames(dt.p)[2]<-"devtime"
-
-if(k==1) dt.dat= rbind(dt.e, dt.l, dt.p)
-if(k>1) dt.dat= rbind(dt.dat, rbind(dt.e, dt.l, dt.p) )
-}
-dt.dat$stage= factor(dt.dat$stage, levels=c("larvae","pupae","adult") )
-
-#make labels
-dat.sub1$label= paste("eggs: T0=", round(dat.sub1$ET,1), ", G=", round(dat.sub1$DE,1), ", larvae: T0=", round(dat.sub1$LT,1), ", G=", round(dat.sub1$DLT,1), ", pupae: T0=", round(dat.sub1$TP,1), ", G=", round(dat.sub1$DP,1), sep="")
-dt.dat$lab=NA
-dt.dat$lab= dat.sub1$label[match(dt.dat$index, dat.sub1$index)]
-
-#plot
-setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
-pdf("Fig2_DevTime.pdf",height = 6, width = 10)
-ggplot(data=dt.dat, aes(x=temps, y=devtime, lty=stage))+geom_line(lwd=0.5)+facet_wrap(~lab, labeller = label_wrap_gen()) +xlim(15,35)+ylim(0,60)+
-  ylab("Development time(days)") + theme(legend.position="bottom") #, strip.background = element_blank(), strip.text.x = element_blank()
-dev.off()
-#---------------
-#FIGURE 3
-#PLOT G BY T
-dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
-dat.sub$z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
-
-range(dat.sub$z, na.rm=T)
-cols= heat.colors(15)
-
-#compare T0s
-dat.sub1= dat.sub[which(!is.na(dat.sub$ET)&!is.na(dat.sub$LT)&!is.na(dat.sub$TP)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT)&!is.na(dat.sub$DP)),]
-
-temps=seq(10,25,0.3)
-
-pdf("Fig3_PropLarvalDevTime.pdf",height = 6, width = 6)
-
-#plot larval as proportion of total
-for(k in 1:nrow(dat.sub1)){
-  dat.sub= dat.sub1[k,]
-  dt.e=unlist(lapply(temps,FUN=dt, T0=dat.sub$ET, G=dat.sub$DE))
-  dt.l=unlist(lapply(temps,FUN=dt, T0=dat.sub$LT, G=dat.sub$DLT))
-  dt.p=unlist(lapply(temps,FUN=dt, T0=dat.sub$TP, G=dat.sub$DP))
-  z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
-  
-  #if(k==1) plot(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=cols[round(z+8)], ylim=c(0,1),xlim=c(15,25), ylab="Proportion development time as larvae", xlab="Temperature (C)")
-  #if(k>1) points(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=cols[round(z+8)])
-  if(k==1) plot(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k], ylim=c(0,1),xlim=c(15,25), ylab="Proportion development time as larvae", xlab="Temperature (C)")
-  if(k>1) points(temps, dt.l/(dt.e+dt.l+dt.p), type="l", col=heat.colors(nrow(dat.sub1))[k])
-
-  y=dt.l/(dt.e+dt.l+dt.p)
-  text(x=temps[25]+sample(-10:10,1), y = y[25], labels = dat.sub$index)
-  }
-dev.off()
-
-#-------------------------------
-#Combine former figures 2 and 3
 
 dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
 dat.sub$z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
@@ -300,15 +218,29 @@ dt.dat$lab= dat.sub1$label[match(dt.dat$index, dat.sub1$index)]
 dt.dat$Species= dat.sub1$Species[match(dt.dat$index, dat.sub1$index)]
 colnames(dt.dat)[6]<-"z"
 
+#gather total dt
+library(tidyr)
+dt2= spread(dt.dat, stage, devtime)
+
+#fill in for Chilo
+dt2[which(dt2$Species=="Chilo auricilius" & dt2$temps<22 & is.na(dt2$pupae) ),"pupae"]<-100
+dt2[which(dt2$Species=="Chilo auricilius" & dt2$temps<22 & is.na(dt2$adult) ),"adult"]<-100
+
 #plot
-#setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
-#pdf("Fig2_DevTime.pdf",height = 6, width = 10)
-plot1= ggplot(data=dt.dat, aes(x=temps, y=devtime, lty=stage))+geom_line(lwd=0.5)+facet_wrap(~lab, labeller = label_wrap_gen()) +xlim(15,25)+ ylim(0,100)+
-  ylab("Development time(days)") + theme(legend.position="bottom") #, strip.background = element_blank(), strip.text.x = element_blank()
-#dev.off()
+plot1= ggplot(data=dt2, aes(x=temps))+facet_wrap(~Species) +
+  geom_ribbon(aes(ymin = 0, ymax = larvae), fill = "cadetblue1") +
+  geom_ribbon(aes(ymin = larvae, ymax = pupae ), fill = "cadetblue3") +
+  geom_ribbon(aes(ymin = larvae, ymax = 100 ), fill = "cadetblue3") +
+  geom_ribbon(aes(ymin = pupae, ymax = adult ), fill = "cadetblue4") +
+  geom_ribbon(aes(ymin = adult, ymax = 100 ), fill = "white") +
+  xlim(15,25)+ ylim(0,100)+
+  ylab("Development time (days)")+xlab("temperature (°C)")+ theme_bw()+ theme(legend.position="bottom", strip.text = element_text(face = "italic")) 
 
 #------
 #PLOT G BY T
+library(directlabels)
+library(cowplot)
+
 dat.sub=dddat.o[dddat.o$Order=="Lepidoptera",]
 dat.sub$z= dat.sub$LT - (dat.sub$ET+dat.sub$TP)/2
 
@@ -341,12 +273,12 @@ for(k in 1:nrow(dat.sub1)){
   
 #ggplot version
   plot2l= ggplot(data=dat.kall, aes(x=temps, y=y, col=z, group=k))+geom_line(lwd=0.5)+
-  ylab("Proportion development time as larvae")+xlab("Temperature (C)")+ theme(legend.position="bottom")+    
-    geom_dl(data=dat.kall, aes(label = sp.lab), method = list(dl.combine("first.points"), hjust=0.2)) 
+  ylab("Proportion development time")+xlab("temperature (°C)")+    
+    geom_dl(data=dat.kall, aes(label = sp.lab), method = list(dl.combine("first.points"), hjust=0.2)) +
+    scale_colour_gradientn(colours = (viridis(20)) )
 
-library(cowplot)
-
-pdf("Fig23_PropLarvalDevTime.pdf",height = 6, width = 6)  
+  setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
+pdf("Fig2_PropLarvalDevTime.pdf",height = 6, width = 6)  
   plot_grid(plot1, plot2l, ncol=1,
           labels = 'AUTO')
 dev.off()
@@ -493,11 +425,28 @@ comp2$label= factor(comp2$label, levels=c("S: survival","F: fecundity","G: gener
 #Just Platyptilia
 
 pdf("Fig4__FitComponentPlot.pdf",height = 8, width = 6)
-ggplot(data=comp2, aes(x=Temp, y=value))+facet_wrap(~label, scales="free_y")+geom_line(lwd=0.5)+
+ggplot(data=comp2, aes(x=Temp, y=value))+facet_wrap(~label, scales="free_y")+geom_line(lwd=0.5)+theme_bw()+
   ylab("fitness component value")+xlab("Temperature (C)")
 dev.off()
 
-#try to put r and R0 on safe axis
+#-----------------
+#2x2
+
+comp2$label= "G: generation length (days)"
+comp2$label[comp2$variable=="fecundity" & comp2$variable=="R0"]="F: fecundity & R0= SF"
+comp2$label[comp2$variable=="surv"]="S: survival"
+comp2$label[comp2$variable=="r"]="r= ln(SF)/G"
+comp2$label= factor(comp2$label, levels=c("S: survival","F: fecundity & R0= SF","G: generation length (days)","r= ln(SF)/G"))
+
+comp2$metric=" "
+comp2$metric[comp2$variable=="fecundity"]="F"
+comp2$metric[comp2$variable=="R0"]= "R0= SF"
+
+ggplot(data=comp2, aes(x=Temp, y=value, lty=metric))+facet_wrap(~label, scales="free_y")+geom_line(lwd=0.5)+
+  ylab("fitness component value")+xlab("Temperature (C)")
+
+#----------------
+#try to put r and R0 on same axis
 #make label
 comp2$label= "G: generation length (days)"
 comp2$label[comp2$variable=="fecundity"]="F: fecundity"
