@@ -406,44 +406,30 @@ comp1$R0= comp1$surv*comp1$fecundity
 comp2= melt(comp1, id.vars=c("Species","Temp") , measure.vars=c("devtime","fecundity","surv","r","R0"))
 comp2= comp2[comp2$Species=="Platyptilia carduidactyla",]
 
-#make label
-comp2$label= "G: generation length (days)"
-comp2$label[comp2$variable=="fecundity"]="F: fecundity"
-comp2$label[comp2$variable=="surv"]="S: survival"
-comp2$label[comp2$variable=="r"]="r= ln(SF)/G"
-comp2$label[comp2$variable=="R0"]= "R0= SF"
-comp2$label= factor(comp2$label, levels=c("S: survival","F: fecundity","G: generation length (days)","r= ln(SF)/G","R0= SF"))
+# #make label
+# comp2$label= "G: generation length (days)"
+# comp2$label[comp2$variable=="fecundity"]="F: fecundity"
+# comp2$label[comp2$variable=="surv"]="S: survival"
+# comp2$label[comp2$variable=="r"]="r= ln(SF)/G"
+# comp2$label[comp2$variable=="R0"]= "R0= SF"
+# comp2$label= factor(comp2$label, levels=c("S: survival","F: fecundity","G: generation length (days)","r= ln(SF)/G","R0= SF"))
 
 #FIGURE 4
-# setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/figures/")
-# pdf("Fig4__FitComponentPlot.pdf",height = 8, width = 6)
-# ggplot(data=comp2, aes(x=Temp, y=value))+facet_grid(label~Species, scales="free_y")+geom_line(lwd=0.5)+
-   ylab("fitness component value")+xlab("Temperature (C)")
-# dev.off()
-
-#----------
-#Just Platyptilia
-
-pdf("Fig4__FitComponentPlot.pdf",height = 8, width = 6)
-ggplot(data=comp2, aes(x=Temp, y=value))+facet_wrap(~label, scales="free_y")+geom_line(lwd=0.5)+theme_bw()+
-  ylab("fitness component value")+xlab("Temperature (C)")
-dev.off()
-
-#-----------------
 #2x2
 
 comp2$label= "G: generation length (days)"
-comp2$label[comp2$variable=="fecundity" & comp2$variable=="R0"]="F: fecundity & R0= SF"
+comp2$label[comp2$variable=="fecundity" | comp2$variable=="R0"]="F: fecundity (solid), R0= SF (dashed)"
 comp2$label[comp2$variable=="surv"]="S: survival"
 comp2$label[comp2$variable=="r"]="r= ln(SF)/G"
-comp2$label= factor(comp2$label, levels=c("S: survival","F: fecundity & R0= SF","G: generation length (days)","r= ln(SF)/G"))
+comp2$label= factor(comp2$label, levels=c("S: survival","F: fecundity (solid), R0= SF (dashed)","G: generation length (days)","r= ln(SF)/G"))
 
 comp2$metric=" "
-comp2$metric[comp2$variable=="fecundity"]="F"
 comp2$metric[comp2$variable=="R0"]= "R0= SF"
 
+pdf("Fig3__FitComponentPlot.pdf",height = 8, width = 6)
 ggplot(data=comp2, aes(x=Temp, y=value, lty=metric))+facet_wrap(~label, scales="free_y")+geom_line(lwd=0.5)+
-  ylab("fitness component value")+xlab("Temperature (C)")
+  ylab("fitness component value")+xlab("Temperature (C)")+theme_bw()+theme(legend.position = "none")
+dev.off()
 
 #----------------
 #try to put r and R0 on same axis
