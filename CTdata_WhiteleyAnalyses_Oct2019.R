@@ -1,11 +1,13 @@
 library(ggplot2)
 library(reshape2)
 library(nlme)
+library(viridis)
 
 #-----------------------
+wd=getwd()
 
 #DEVELOPMENT DATA
-setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/Whiteley2019/data/")
+setwd("./COIS_data/")
 dddat= read.csv("SeasonalityDatabase_MASTER.csv")
 ##Restrict to dat with lat / lon
 dddat= dddat[which(!is.na(dddat$lon) & !is.na(dddat$lat) ),]
@@ -21,18 +23,18 @@ dddat$index= factor(dddat$index)
 
 hemi= dddat[dddat$pupal==0,]
 #find species with all data
-hemi= hemi[which(!is.na(hemi$ET)&!is.na(hemi$LT)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT) ),]
+hemi= hemi[which(!is.na(hemi$ET)&!is.na(hemi$LT)&!is.na(hemi$DE)&!is.na(hemi$DLT) ),]
 length(unique(hemi$index))
 length(unique(hemi$Species))
-#hemi: 122 populations, 93 species
+#hemi: 101 populations, 80 species
 
 holo= dddat[dddat$pupal==1,]
 holo$countT0= rowSums(cbind(!is.na(holo$ET),!is.na(holo$LT),!is.na(holo$TP)))
 holo$countG= rowSums(cbind(!is.na(holo$DE),!is.na(holo$DLT),!is.na(holo$DP)))
-holo= holo[which(holo$countT0>2 & holo$countG>2 ),]
+holo= holo[which(holo$countT0>=2 & holo$countG>=2 ),]
 length(unique(holo$index))
 length(unique(holo$Species))
-#holo: 340 pop, 269 species
+#holo: 406 pop, 317 species
 
 #=======================
 #SUMMARIZE OTHER DATA
@@ -62,30 +64,24 @@ matched= na.omit(unique(matched))
 
 #----
 #Temperature size rule
-tsr= read.csv("tsr_KlokHarrison.csv")
-
-matched= na.omit(match(unique(tsr$Species), dddat$Species))
-dddat[matched,]
+#tsr= read.csv("tsr_KlokHarrison.csv")
+#matched= na.omit(match(unique(tsr$Species), dddat$Species))
+#dddat[matched,]
 
 #-------
 #Dell
-setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/ThermalStress/data/CTlimits/")
-dat.full<-read.csv('Delletal2013.csv')
+#setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/ThermalStress/data/CTlimits/")
+#dat.full<-read.csv('Delletal2013.csv')
 
-dat.agg= aggregate(dat.full, by=list(dat.full$DataSeriesID, dat.full$ResStage), FUN=mean)
-names(dat.agg)[1:2]=c("ID","stage")
-dat.agg=dat.agg[,1:2]
-
-dat.agg[dat.agg$ID==37409 ,]
+#dat.agg= aggregate(dat.full, by=list(dat.full$DataSeriesID, dat.full$ResStage), FUN=mean)
+#names(dat.agg)[1:2]=c("ID","stage")
+#dat.agg=dat.agg[,1:2]
+#dat.agg[dat.agg$ID==37409 ,]
 
 library(plyr)
-dat.agg1=count(dat.agg, 'ID')
-dat.agg1[dat.agg1$freq>1,]
+#dat.agg1=count(dat.agg, 'ID')
+#dat.agg1[dat.agg1$freq>1,]
 
-setwd("/Volumes/GoogleDrive/Shared Drives/TrEnCh/Projects/ThermalStress/data/CTlimits/")
-tol.p= read.csv('Pinsky_dataset_1_hotwater.csv')
-tol.gt= read.csv('GlobalTherm_upload_10_11_17.csv')
-#no stage data
 #=======================
 
 ##ACROSS STAGES
@@ -307,6 +303,8 @@ dat.sub=dddat[dddat$Species=="Plutella xylostella" | dddat$Species=="Platyptilia
 #add development data for Iran population
 #dddat.add= read.csv("SeasonalityDatabase_MASTER_add2019.csv")
 #read back in
+setwd(wd)
+setwd("./COIS_data/")
 dat.pp= read.csv("SeasonalityDatabase_sub.csv")
 
 #Look for papers with fecundity in title
@@ -317,7 +315,6 @@ dat.sub1[fec,c("Author","Year","index","Species")]
 dat.sub1[fec[21],]
 
 #load fecundity data
-setwd("/Volumes/GoogleDrive/My Drive/Buckley/Work/ICBseasonality/data/")
 fec= read.csv('FecundTemp.csv')
 
 fec2= melt(fec, id.vars=c("Species","Temp","index") , measure.vars=c("S_adult","Long","F"))
