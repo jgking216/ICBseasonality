@@ -17,9 +17,22 @@ dddat[which(dddat$EADDC>2000),"omit"]="y"  #drops 9
 dddat$DE= as.numeric(as.character(dddat$DE))
 
 #summarize
+dddat$index= factor(dddat$index)
+
 hemi= dddat[dddat$pupal==0,]
 #find species with all data
-hemi= hemi[which(!is.na(hemi$ET)&!is.na(hemi$LT) ),]
+hemi= hemi[which(!is.na(hemi$ET)&!is.na(hemi$LT)&!is.na(dat.sub$DE)&!is.na(dat.sub$DLT) ),]
+length(unique(hemi$index))
+length(unique(hemi$Species))
+#hemi: 122 populations, 93 species
+
+holo= dddat[dddat$pupal==1,]
+holo$countT0= rowSums(cbind(!is.na(holo$ET),!is.na(holo$LT),!is.na(holo$TP)))
+holo$countG= rowSums(cbind(!is.na(holo$DE),!is.na(holo$DLT),!is.na(holo$DP)))
+holo= holo[which(holo$countT0>2 & holo$countG>2 ),]
+length(unique(holo$index))
+length(unique(holo$Species))
+#holo: 340 pop, 269 species
 
 #=======================
 #SUMMARIZE OTHER DATA
@@ -153,7 +166,7 @@ ggplot(data=dddat2, aes(x=abs(lat), y=T0sd))+geom_point()+geom_smooth(method="lm
 #BDT.C, ET, LT, 
 #EADDC, DE, DLT, DP
 
-temps=10:40
+temps=seq(10,40,0.1)
 
 dt= function(temp, T0, G){
 dev=NA
@@ -198,6 +211,7 @@ for(k in 1:nrow(dat.sub1) ){  #nrow(dat.sub1)
   dt.l$index= dat.sub.sel$index
   dt.l$stage= "pupae"
   colnames(dt.l)[2]<-"devtime"
+  dt.l$devtime[dt.l$devtime>100]=100
   
   dt.p1=unlist(lapply(temps,FUN=dt, T0=dat.sub.sel$TP, G=dat.sub.sel$DP))
   dt.p= as.data.frame(cbind(temps, dt.p1+dt.l1+dt.e1))
@@ -205,6 +219,7 @@ for(k in 1:nrow(dat.sub1) ){  #nrow(dat.sub1)
   dt.p$index= dat.sub.sel$index
   dt.p$stage= "adult"
   colnames(dt.p)[2]<-"devtime"
+  dt.p$devtime[dt.p$devtime>100]=100
   
   if(k==1) {dt.dat= cbind(rbind(dt.e, dt.l, dt.p),dat.sub.sel[,"z"]) }
   if(k>1) dt.dat= rbind(dt.dat, cbind(rbind(dt.e, dt.l, dt.p),dat.sub.sel[,"z"]) )
@@ -223,8 +238,8 @@ library(tidyr)
 dt2= spread(dt.dat, stage, devtime)
 
 #fill in for Chilo
-dt2[which(dt2$Species=="Chilo auricilius" & dt2$temps<22 & is.na(dt2$pupae) ),"pupae"]<-100
-dt2[which(dt2$Species=="Chilo auricilius" & dt2$temps<22 & is.na(dt2$adult) ),"adult"]<-100
+#dt2[which(dt2$Species=="Chilo auricilius" & dt2$temps<22 & is.na(dt2$pupae) ),"pupae"]<-100
+#dt2[which(dt2$Species=="Chilo auricilius" & dt2$temps<22 & is.na(dt2$adult) ),"adult"]<-100
 
 #plot
 plot1= ggplot(data=dt2, aes(x=temps))+facet_wrap(~Species) +
